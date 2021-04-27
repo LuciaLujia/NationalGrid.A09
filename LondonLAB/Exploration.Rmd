@@ -39,27 +39,29 @@ eu_generation <- rbind(eu_2019, eu_2020)
 
 # Make interconnector flows between GB and its neighbors consistent with the rest of the dataset
 flow_2020 <- flow_2020 %>% 
-  mutate(GB...FR= -FR.GB,
-         GB...NL = -NL.GB,
-         GB...BE= -BE.GB,
-         GB...IE= -IE.GB,
-         GB...GB.NIR= -GB_NIR.GB
+  mutate(GB.FR= -FR.GB,
+         GB.NL = -NL.GB,
+         GB.BE= -BE.GB,
+         GB.IE= -IE.GB,
+         GB.NIR= -NIR.GB
          )
 
 flow_2019 <- flow_2019 %>% 
-  mutate(GB...FR= -FR.GB,
-         GB...NL = -NL.GB,
-         GB...BE= -BE.GB,
-         GB...IE= -IE.GB,
-         GB...GB.NIR= -GB_NIR.GB
+  mutate(GB.FR= -FR.GB,
+         GB.NL = -NL.GB,
+         GB.BE= -BE.GB,
+         GB.IE= -IE.GB,
+         GB.NIR= -NIR.GB
          )
+
+flow <- rbind(flow_2019, flow_2020)
+
 
 # Load data on the carbon intensities of each generation technology
 
 carbon_intensities <- read_excel("Technology CO2 Intensity.xlsx") 
 carbon_intensities <- carbon_intensities[3, 2:21]
 
-  
 ```
 
 ## Calculation of carbon intensity 
@@ -86,11 +88,66 @@ eu_generation_CI <-
   eu_generation_CI %>% 
   mutate(carbon_intensity = 1000*rowSums(dplyr::across(3:22), na.rm = T))
 
+# Dataframe of hourly carbon intensities for each country
+
+hourly_carbon_intensity <- eu_generation_CI %>% 
+  select(Datetime, Country, carbon_intensity) %>% 
+  pivot_wider(names_from = "Country", values_from= "carbon_intensity")
+
+
 # Add price and carbon intensity to the dataframe containing proportions of total generation from each fuel/asset type
 eu_generation_percentage <- eu_generation_percentage %>% 
   left_join(price %>% pivot_longer(cols= 2:14, names_to= "Country", values_to= "Price"), by =c("Datetime", "Country")) %>% 
   left_join(eu_generation_CI %>% select(Datetime, Country, carbon_intensity),  by =c("Datetime", "Country"))
 
+
+
+```
+
+### Calculation of carbon savings of interconnector flows 
+
+```{r}
+
+# Create the notin operator
+`%notin%` <- Negate(`%in%`)
+
+# Store list of countries whose carbon intensities have been calculated
+country_names <- unlist(colnames(hourly_carbon_intensity))
+
+# Join hourly country carbon intensities and flow data
+  
+flow_plus_CI <- left_join(flow, hourly_carbon_intensity, by="Datetime") %>% 
+  mutate_at(2:60, function(x) ifelse(x>0,0,x))
+
+
+# Remove columns containing countries whose carbon intensities is unknown
+
+p=61
+i=2
+
+while(i<p){
+  flow_names <- unlist(str_split(colnames(flow_plus_CI[,i]), "\\."))
+  if( flow_names[1] %notin% country_names |  flow_names[2] %notin% country_names){
+    flow_plus_CI <- flow_plus_CI[-c(i)]
+    i=i-1
+    p=p-1
+  }
+  i=i+1
+}
+
+
+# Calculate carbon savings of imports (A.B -> A imports from B)
+for(i in 2:46){
+  flow_names <- unlist(str_split(colnames(flow_plus_CI[,i]), "\\."))
+  flow_plus_CI[,i] <- abs(flow_plus_CI[,i])*(flow_plus_CI[, flow_names[1]]- flow_plus_CI[, flow_names[2]])
+}
+
+
+carbon_savings_df <- flow_plus_CI %>% 
+  select(-c(47:60))
+
+# Calculate total carbon savings in the two years
+colSums(carbon_savings_df %>% select(-Datetime))
 
 
 ```
