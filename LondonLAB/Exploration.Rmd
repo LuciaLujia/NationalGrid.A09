@@ -165,7 +165,7 @@ eu_generation_percentage %>%
   mutate(carbon_intensity_MA= rollmean(carbon_intensity, k = 1440, fill = NA)) %>% 
   ggplot(aes(x = Datetime, y = carbon_intensity_MA))+
   geom_line() +
-  labs(title = "Monthly Moving Average for the Carbon Intensity of Britain")
+  labs(title = "60-Day Moving Average for the Carbon Intensity of Britain")
 
 
 eu_generation_percentage %>% 
@@ -173,21 +173,21 @@ eu_generation_percentage %>%
   mutate(carbon_intensity_MA= rollmean(carbon_intensity, k = 1440, fill = NA)) %>%
   ggplot(aes(x = Datetime, y = carbon_intensity_MA))+
   geom_line() +
-  labs(title = "Monthly Moving Average for the Carbon Intensity of Germany")
+  labs(title = "60-Day  Moving Average for the Carbon Intensity of Germany")
 
 eu_generation_percentage %>% 
   filter(Country == "FR") %>% 
   mutate(carbon_intensity_MA = rollmean(carbon_intensity, k = 1440, fill = NA)) %>%
   ggplot(aes(x = Datetime, y = carbon_intensity_MA))+
   geom_line() +
-  labs(title = "Monthly Moving Average for the Carbon Intensity of France")
+  labs(title = "60-Day  Moving Average for the Carbon Intensity of France")
 
 eu_generation_percentage %>% 
   filter(Country == "NO") %>% 
   mutate(carbon_intensity_MA = rollmean(carbon_intensity, k = 1440, fill = NA)) %>%
   ggplot(aes(x = Datetime, y = carbon_intensity_MA))+
   geom_line() +
-  labs(title = "Monthly Moving Average for the Carbon Intensity of Norway")
+  labs(title = "60-Day  Moving Average for the Carbon Intensity of Norway")
 
 
 eu_generation_percentage %>% 
@@ -195,7 +195,7 @@ eu_generation_percentage %>%
   mutate(carbon_intensity_MA = rollmean(carbon_intensity, k = 1440, fill = NA)) %>%
   ggplot(aes(x = Datetime, y = carbon_intensity_MA))+
   geom_line() +
-  labs(title = "Monthly Moving Average for the Carbon Intensity of Swedan")
+  labs(title = "60-Day  Moving Average for the Carbon Intensity of Swedan")
 
 
 ```
@@ -211,35 +211,35 @@ eu_generation_percentage%>%
   mutate(demand_MA = rollmean(Demand, k = 336, fill = NA)) %>% 
   ggplot(aes(x = Datetime, y = demand_MA))+
   geom_line() +
-  labs(title = "Monthly Moving Average for the Demand of Britain")
+  labs(title = "14 Day Moving Average for the Demand of Britain")
 
 eu_generation_percentage%>% 
   filter(Country == "FR") %>%
   mutate(demand_MA = rollmean(Demand, k = 336, fill = NA)) %>% 
   ggplot(aes(x = Datetime, y = demand_MA))+
   geom_line() +
-  labs(title = "Monthly Moving Average for the Demand of France")
+  labs(title = "14 Day Moving Average for the Demand of France")
 
 eu_generation_percentage %>% 
   filter(Country == "NO") %>%
   mutate(demand_MA = rollmean(Demand, k = 336, fill = NA)) %>% 
   ggplot(aes(x = Datetime, y = demand_MA))+
   geom_line() +
-  labs(title = "Monthly Moving Average for the Demand of Norway")
+  labs(title = "14 Day Moving Average for the Demand of Norway")
 
 eu_generation_percentage %>% 
   filter(Country == "SE") %>%
   mutate(demand_MA = rollmean(Demand, k = 336, fill = NA)) %>% 
   ggplot(aes(x = Datetime, y = demand_MA))+
   geom_line() +
-  labs(title = "Monthly Moving Average for the Demand of Swedan")
+  labs(title = "14 Day Moving Average for the Demand of Swedan")
 
 eu_generation_percentage %>% 
   filter(Country == "DE") %>%
   mutate(demand_MA = rollmean(Demand, k = 336, fill = NA)) %>% 
   ggplot(aes(x = Datetime, y = demand_MA))+
   geom_line() +
-  labs(title = "Monthly Moving Average for the Demand of Germany")
+  labs(title = "14 Day Moving Average for the Demand of Germany")
 
 
 
