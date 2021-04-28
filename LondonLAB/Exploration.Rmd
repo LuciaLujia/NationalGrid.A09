@@ -244,3 +244,155 @@ eu_generation_percentage %>%
 
 
 ```
+
+### Great Britain and Belgium
+
+```{r fig.height=8, fig.width=12}
+
+
+GB_generation_data <- eu_generation_percentage %>% 
+  filter(Country== "GB")
+
+
+GB_generation_data %>% 
+  mutate(Price_MA= rollmean(Price, k = 336, fill = NA)) %>% 
+  ggplot(aes(x= Datetime, y= Price_MA)) +
+  geom_line()+
+  theme_minimal()+
+  labs(
+    title= "Change in price in Great Britain over time (14-day moving average)",
+    y="Price (Pounds per MWh)",
+    x=element_blank()
+  )+
+  theme(plot.title = element_text(size = 16, face = "bold"))
+
+
+GB_generation_data %>% 
+  mutate(carbon_intensity_MA= rollmean(carbon_intensity, k = 1440, fill = NA)) %>% 
+  ggplot(aes(x= Datetime, y= carbon_intensity_MA)) +
+  geom_line()+
+  theme_minimal()+
+  labs(
+    title= "Change in carbon intensity in Great Britain over time (60-day moving average)",
+    y="Carbon Intensity (kg/MWh)",
+    x= element_blank()
+  )+
+  theme(plot.title = element_text(size = 16, face = "bold"))
+
+
+```
+
+
+```{r fig.height=8, fig.width=12}
+
+BE_generation_data <- eu_generation_percentage %>% 
+  filter(Country== "BE")
+
+
+BE_generation_data %>% 
+  mutate(Price_MA= rollmean(Price, k = 336, fill = NA)) %>% 
+  ggplot(aes(x= Datetime, y= Price_MA)) +
+  geom_line()+
+  theme_minimal()+
+  labs(
+    title= "Change in price in Belgium over time (14-day moving average)",
+    y="Price (Pounds per MWh)",
+    x=element_blank()
+  )+
+  theme(plot.title = element_text(size = 16, face = "bold"))
+
+
+BE_generation_data %>% 
+  mutate(carbon_intensity_MA= rollmean(carbon_intensity, k = 1440, fill = NA)) %>% 
+  ggplot(aes(x= Datetime, y= carbon_intensity_MA)) +
+  geom_line()+
+  theme_minimal()+
+  labs(
+    title= "Change in carbon intensity in Belgium over time (60-day moving average)",
+    y="Carbon Intensity (kg/MWh)",
+    x= element_blank()
+  )+
+  theme(plot.title = element_text(size = 16, face = "bold"))
+
+
+# 60-day moving average of hourly carbon intensities of all countries 
+
+hourly_carbon_intensity_MA <- as.data.frame(hourly_carbon_intensity %>% 
+  select(2:15) %>% 
+  rollapply(1440, mean, by.column= TRUE))
+
+
+hourly_carbon_intensity_MA <-  cbind(hourly_carbon_intensity %>%select(Datetime) %>% tail(-1439), hourly_carbon_intensity_MA)
+ 
+hourly_carbon_intensity_MA %>%  
+  pivot_longer(cols=2:15, names_to="Country", values_to= "carbon_intensity") %>% 
+  ggplot(aes(x= Datetime, y= carbon_intensity, color= Country))+
+  geom_line(size=0.8)+
+  theme_minimal()+
+  labs(
+    title= "Change in carbon intensity of European countries over time (60-day moving average)",
+    y="Carbon Intensity (kg/MWh)",
+    x= element_blank()
+  )+
+  theme(plot.title = element_text(size = 16, face = "bold"))+
+   scale_color_manual(values= c('#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4', '#46f0f0', '#f032e6', '#bcf60c', '#fabebe', '#008080', '#e6beff', '#9a6324', '#fffac8'))
+
+
+```
+
+
+```{r fig.height=8, fig.width=12}
+
+carbon_savings_df %>% 
+  mutate(carbon_savings_GB.FR_MA= rollmean(GB.FR, k = 1440, fill = NA)) %>% 
+  ggplot(aes(x= Datetime, y= carbon_savings_GB.FR_MA/1000))+
+  geom_line()+
+  theme_minimal()+
+  labs(
+    title= "Carbon savings through IFA over time (60-day moving average)",
+    y="Carbon Savings (Tons)",
+    x= element_blank()
+  )+
+  theme(plot.title = element_text(size = 16, face = "bold"))
+  
+
+carbon_savings_df %>% 
+  summarise(GB.FR= sum(GB.FR, na.rm= TRUE),
+            GB.NL = sum(GB.NL, na.rm= TRUE),
+            GB.BE = sum(GB.BE, na.rm= TRUE),
+            GB.IE = sum(GB.IE, na.rm= TRUE)
+            ) %>% 
+  pivot_longer(cols= 1:4, names_to= "int_name", values_to= "carbon_savings") %>% 
+  ggplot(aes(x=int_name, y=carbon_savings/1e9))+
+  geom_col(width=0.3)+
+  theme_minimal()+
+  labs(
+    title= "Total carbon savings through interconnectors (Britain)",
+    y="Carbon Savings (Megatons of Co2)",
+    x= element_blank()
+  )+
+  theme(plot.title = element_text(size = 16, face = "bold"))
+
+carbon_savings_df %>% 
+  summarise(BE.GB = sum(BE.GB, na.rm= TRUE),
+            BE.DE = sum(BE.DE, na.rm= TRUE),
+            BE.NL = sum(BE.NL, na.rm= TRUE),
+            BE.FR = sum(BE.FR, na.rm= TRUE)
+            ) %>% 
+  pivot_longer(cols= 1:4, names_to= "int_name", values_to= "carbon_savings") %>% 
+  ggplot(aes(x=int_name, y=carbon_savings/1e9))+
+  geom_col(width=0.3)+
+  theme_minimal()+
+  labs(
+    title= "Total carbon savings through interconnectors (Belgium)",
+    y="Carbon Savings (Megatons of Co2)",
+    x= element_blank()
+  )+
+  theme(plot.title = element_text(size = 16, face = "bold"))
+
+
+
+
+
+```
+
