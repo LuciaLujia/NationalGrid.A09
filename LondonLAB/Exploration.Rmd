@@ -13,7 +13,7 @@ library(tidyverse)
 library(ggplot2)
 library(zoo) # For computing moving averages 
 library(GGally)
-
+library(ggpubr)
 ```
 
 ### Load, clean and reformat data
@@ -254,7 +254,7 @@ GB_generation_data <- eu_generation_percentage %>%
   filter(Country== "GB")
 
 
-GB_generation_data %>% 
+GB_price_change <- GB_generation_data %>% 
   mutate(Price_MA= rollmean(Price, k = 336, fill = NA)) %>% 
   ggplot(aes(x= Datetime, y= Price_MA)) +
   geom_line()+
@@ -266,8 +266,10 @@ GB_generation_data %>%
   )+
   theme(plot.title = element_text(size = 16, face = "bold"))
 
+GB_price_change
 
-GB_generation_data %>% 
+
+GB_carbon_intensity_change <- GB_generation_data %>% 
   mutate(carbon_intensity_MA= rollmean(carbon_intensity, k = 1440, fill = NA)) %>% 
   ggplot(aes(x= Datetime, y= carbon_intensity_MA)) +
   geom_line()+
@@ -279,7 +281,7 @@ GB_generation_data %>%
   )+
   theme(plot.title = element_text(size = 16, face = "bold"))
 
-
+GB_carbon_intensity_change
 ```
 
 
@@ -289,7 +291,7 @@ BE_generation_data <- eu_generation_percentage %>%
   filter(Country== "BE")
 
 
-BE_generation_data %>% 
+BE_price_change <- BE_generation_data %>% 
   mutate(Price_MA= rollmean(Price, k = 336, fill = NA)) %>% 
   ggplot(aes(x= Datetime, y= Price_MA)) +
   geom_line()+
@@ -301,8 +303,9 @@ BE_generation_data %>%
   )+
   theme(plot.title = element_text(size = 16, face = "bold"))
 
+BE_price_change
 
-BE_generation_data %>% 
+BE_carbon_intensity_change <- BE_generation_data %>% 
   mutate(carbon_intensity_MA= rollmean(carbon_intensity, k = 1440, fill = NA)) %>% 
   ggplot(aes(x= Datetime, y= carbon_intensity_MA)) +
   geom_line()+
@@ -314,6 +317,7 @@ BE_generation_data %>%
   )+
   theme(plot.title = element_text(size = 16, face = "bold"))
 
+BE_carbon_intensity_change
 
 # 60-day moving average of hourly carbon intensities of all countries 
 
@@ -324,7 +328,7 @@ hourly_carbon_intensity_MA <- as.data.frame(hourly_carbon_intensity %>%
 
 hourly_carbon_intensity_MA <-  cbind(hourly_carbon_intensity %>%select(Datetime) %>% tail(-1439), hourly_carbon_intensity_MA)
  
-hourly_carbon_intensity_MA %>%  
+hourly_carbon_intensity_MA_change <- hourly_carbon_intensity_MA %>%  
   pivot_longer(cols=2:15, names_to="Country", values_to= "carbon_intensity") %>% 
   ggplot(aes(x= Datetime, y= carbon_intensity, color= Country))+
   geom_line(size=0.8)+
@@ -337,7 +341,7 @@ hourly_carbon_intensity_MA %>%
   theme(plot.title = element_text(size = 16, face = "bold"))+
    scale_color_manual(values= c('#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4', '#46f0f0', '#f032e6', '#bcf60c', '#fabebe', '#008080', '#e6beff', '#9a6324', '#fffac8'))
 
-
+hourly_carbon_intensity_MA_change
 ```
 
 
@@ -394,5 +398,210 @@ carbon_savings_df %>%
 
 
 
+```
+
+### Sweden, Norway, Finland, Denmark and Germany
+
+```{r fig.height=8, fig.width=12}
+
+# Sweden --------------------------------------------------------------------------
+SE_generation_data <- eu_generation_percentage %>% 
+  filter(Country== "SE")
+
+SE_price_change <- SE_generation_data %>% 
+  mutate(Price_MA= rollmean(Price, k = 336, fill = NA)) %>% 
+  ggplot(aes(x= Datetime, y= Price_MA)) +
+  geom_line()+
+  theme_minimal()+
+  labs(
+    title= "Change in price in Sweden over time (14-day moving average)",
+    y="Price (Pounds per MWh)",
+    x=element_blank()
+  )+
+  theme(plot.title = element_text(size = 16, face = "bold"))
+
+# SE_price_change
+
+SE_carbon_intensity_change <- SE_generation_data %>% 
+  mutate(carbon_intensity_MA= rollmean(carbon_intensity, k = 1440, fill = NA)) %>% 
+  ggplot(aes(x= Datetime, y= carbon_intensity_MA)) +
+  geom_line()+
+  theme_minimal()+
+  labs(
+    title= "Change in carbon intensity in Sweden over time (60-day moving average)",
+    y="Carbon Intensity (kg/MWh)",
+    x= element_blank()
+  )+
+  theme(plot.title = element_text(size = 16, face = "bold"))
+
+# SE_carbon_intensity_change
+
+
+
+# Norway --------------------------------------------------------------------------
+NO_generation_data <- eu_generation_percentage %>% 
+  filter(Country== "NO")
+
+NO_price_change <- NO_generation_data %>% 
+  mutate(Price_MA= rollmean(Price, k = 336, fill = NA)) %>% 
+  ggplot(aes(x= Datetime, y= Price_MA)) +
+  geom_line()+
+  theme_minimal()+
+  labs(
+    title= "Change in price in Norway over time (14-day moving average)",
+    y="Price (Pounds per MWh)",
+    x=element_blank()
+  )+
+  theme(plot.title = element_text(size = 16, face = "bold"))
+
+# NO_price_change
+
+NO_carbon_intensity_change <- NO_generation_data %>% 
+  mutate(carbon_intensity_MA= rollmean(carbon_intensity, k = 1440, fill = NA)) %>% 
+  ggplot(aes(x= Datetime, y= carbon_intensity_MA)) +
+  geom_line()+
+  theme_minimal()+
+  labs(
+    title= "Change in carbon intensity in Norway over time (60-day moving average)",
+    y="Carbon Intensity (kg/MWh)",
+    x= element_blank()
+  )+
+  theme(plot.title = element_text(size = 16, face = "bold"))
+
+# NO_carbon_intensity_change
+
+
+
+# Finland --------------------------------------------------------------------------
+FI_generation_data <- eu_generation_percentage %>% 
+  filter(Country== "FI")
+
+FI_price_change <- FI_generation_data %>% 
+  mutate(Price_MA= rollmean(Price, k = 336, fill = NA)) %>% 
+  ggplot(aes(x= Datetime, y= Price_MA)) +
+  geom_line()+
+  theme_minimal()+
+  labs(
+    title= "Change in price in Finland over time (14-day moving average)",
+    y="Price (Pounds per MWh)",
+    x=element_blank()
+  )+
+  theme(plot.title = element_text(size = 16, face = "bold"))
+
+# FI_price_change
+
+FI_carbon_intensity_change <- FI_generation_data %>% 
+  mutate(carbon_intensity_MA= rollmean(carbon_intensity, k = 1440, fill = NA)) %>% 
+  ggplot(aes(x= Datetime, y= carbon_intensity_MA)) +
+  geom_line()+
+  theme_minimal()+
+  labs(
+    title= "Change in carbon intensity in Finland over time (60-day moving average)",
+    y="Carbon Intensity (kg/MWh)",
+    x= element_blank()
+  )+
+  theme(plot.title = element_text(size = 16, face = "bold"))
+
+# FI_carbon_intensity_change
+
+
+
+# Denmark --------------------------------------------------------------------------
+DK_generation_data <- eu_generation_percentage %>% 
+  filter(Country== "DK")
+
+DK_price_change <- FI_generation_data %>% 
+  mutate(Price_MA= rollmean(Price, k = 336, fill = NA)) %>% 
+  ggplot(aes(x= Datetime, y= Price_MA)) +
+  geom_line()+
+  theme_minimal()+
+  labs(
+    title= "Change in price in Denmark over time (14-day moving average)",
+    y="Price (Pounds per MWh)",
+    x=element_blank()
+  )+
+  theme(plot.title = element_text(size = 16, face = "bold"))
+
+# DK_price_change
+
+DK_carbon_intensity_change <- DK_generation_data %>% 
+  mutate(carbon_intensity_MA= rollmean(carbon_intensity, k = 1440, fill = NA)) %>% 
+  ggplot(aes(x= Datetime, y= carbon_intensity_MA)) +
+  geom_line()+
+  theme_minimal()+
+  labs(
+    title= "Change in carbon intensity in Denmark over time (60-day moving average)",
+    y="Carbon Intensity (kg/MWh)",
+    x= element_blank()
+  )+
+  theme(plot.title = element_text(size = 16, face = "bold"))
+
+# DK_carbon_intensity_change
+
+
+
+# Germany --------------------------------------------------------------------------
+DE_generation_data <- eu_generation_percentage %>% 
+  filter(Country== "DE")
+
+DE_price_change <- DE_generation_data %>% 
+  mutate(Price_MA= rollmean(Price, k = 336, fill = NA)) %>% 
+  ggplot(aes(x= Datetime, y= Price_MA)) +
+  geom_line()+
+  theme_minimal()+
+  labs(
+    title= "Change in price in Germany over time (14-day moving average)",
+    y="Price (Pounds per MWh)",
+    x=element_blank()
+  )+
+  theme(plot.title = element_text(size = 16, face = "bold"))
+
+# DE_price_change
+
+DE_carbon_intensity_change <- DE_generation_data %>% 
+  mutate(carbon_intensity_MA= rollmean(carbon_intensity, k = 1440, fill = NA)) %>% 
+  ggplot(aes(x= Datetime, y= carbon_intensity_MA)) +
+  geom_line()+
+  theme_minimal()+
+  labs(
+    title= "Change in carbon intensity in Germany over time (60-day moving average)",
+    y="Carbon Intensity (kg/MWh)",
+    x= element_blank()
+  )+
+  theme(plot.title = element_text(size = 16, face = "bold"))
+
+# DE_carbon_intensity_change
+
+```
+
+
+
+### Comparisons
+
+```{r fig.height=18, fig.width=12, warning=FALSE}
+
+ggarrange(
+          GB_price_change,
+          GB_carbon_intensity_change,
+          BE_price_change,
+          BE_carbon_intensity_change,
+          SE_price_change,
+          SE_carbon_intensity_change,
+          NO_price_change,
+          NO_carbon_intensity_change,
+          FI_price_change,
+          FI_carbon_intensity_change,
+          DK_price_change,
+          DK_carbon_intensity_change,
+          DE_price_change,
+          DE_carbon_intensity_change,
+          ncol = 2, nrow = 7
+          )
+
+```
+
+
+```{r}
+hourly_carbon_intensity_MA_change
 ```
 
