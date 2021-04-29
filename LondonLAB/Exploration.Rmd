@@ -5,8 +5,6 @@ date: "12/04/2021"
 output: html_document
 ---
 
-[delete later] test pull and push
-
 ```{r}
 
 # Libraries
