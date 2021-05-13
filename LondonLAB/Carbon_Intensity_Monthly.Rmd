@@ -1,0 +1,41 @@
+---
+title: "Carbon_Intensity_Monthly"
+author: "Chris Lewis"
+date: "13/05/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, libraries}
+# Libraries
+library(readxl)
+library(tidyverse)
+library(ggplot2)
+library(zoo)
+library(GGally)
+library(ggpubr)
+library(lubridate)
+library(data.table)
+```
+
+```{r, finding monthly carbon intensities}
+
+#reading in the total carbon intensities from sheet 5
+Carbon_Intensity_Total <- read_excel("Total_Carbon_Intensity.xlsx", sheet = 5) %>% 
+  mutate(Datetime = floor_date(ymd_hms(Datetime), "month"))
+
+#the Datetime is converted from year month day to year month
+setDT(Carbon_Intensity_Total)[, Datetime := format(as.Date(Datetime), "%Y-%m") ]
+
+#the monthly carbon intensities are found
+Monthly_Carbon_Intensity <- Carbon_Intensity_Total %>% 
+ group_by(Datetime) %>% 
+ summarise_at(1:12, sum)
+
+#the output csv file is written to the GitHub folder
+write.csv(Monthly_Carbon_Intensity,"/Users/chrislewis/Documents/GitHub/NationalGrid.A09/LondonLAB/Monthly_Carbon_Intensity.csv", row.names = FALSE)
+```
+
