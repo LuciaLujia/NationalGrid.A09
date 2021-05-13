@@ -1,0 +1,93 @@
+---
+title: "Data Collating"
+author: "A09"
+date: "13/05/2021"
+output: html_document
+---
+
+```{r}
+
+# Libraries
+library(readxl)
+library(tidyverse)
+library(ggplot2)
+library(zoo) # For computing moving averages 
+library(GGally)
+library(ggpubr)
+library(lubridate)
+```
+
+```{r}
+
+# import data
+gb_generation_2016 <- read.csv(file = 'GB 2016.csv', header = TRUE, na= c("n/e", "N/A", ""))
+gb_generation_2017 <- read.csv(file = 'GB 2017.csv', header = TRUE, na= c("n/e", "N/A", ""))
+gb_generation_2018 <- read.csv(file = 'GB 2018.csv', header = TRUE, na= c("n/e", "N/A", ""))
+
+# bind data
+gb_generation_2016_18 <- as.data.frame(rbind(gb_generation_2016, gb_generation_2017, gb_generation_2018))
+
+# remove unwanted columns
+gb_generation_2016_18 <- subset(gb_generation_2016_18, select = -c(9, 13, 16))
+
+# convert NAs to 0
+gb_generation_2016_18[is.na(gb_generation_2016_18)] <- as.numeric(0)
+
+# rename column names
+names(gb_generation_2016_18) <- c("Country", "Datetime",	"Biomass",	"Fossil.Brown.coal.Lignite",	"Fossil.Coal.derived.gas",	"Fossil.Gas",	"Fossil.Hard.coal",	"Fossil.Oil",	"Fossil.Peat",	"Geothermal",	"Hydro.Pumped.Storage",	"Hydro.Run.of.river.and.poundage",	"Hydro.Water.Reservoir",	"Nuclear",	"Other",	"Other.renewable",	"Solar",	"Waste",	"Wind.Offshore",	"Wind.Onshore")
+
+# split the datetime column to get just dates
+dtparts <- t(as.data.frame(strsplit(gb_generation_2016_18[,2],' ')))
+gb_generation_2016_18[2] <- dtparts[,1]
+
+# convert hourly data to monthly 
+gb_generation_2016_18 <- gb_generation_2016_18 %>% 
+  mutate(Datetime = floor_date(as.Date(Datetime, format= "%d.%m.%Y"), "month")) %>% 
+  group_by(Datetime, Country) %>% 
+  summarise_at(1:18, sum)
+
+```
+
+```{r}
+
+data_files <- c('AT 2016.csv', 'AT 2017.csv', 'AT 2018.csv', 'BE 2016.csv', 'BE 2017.csv', 'BE 2018.csv', 'DE 2016.csv', 'DE 2017.csv', 'DE 2018.csv', 'DK 2016.csv', 'DK 2017.csv', 'DK 2018.csv', 'ES 2016.csv', 'ES 2017.csv', 'ES 2018.csv', 'FI 2016.csv', 'FI 2017.csv', 'FI 2018.csv', 'FR 2016.csv', 'FR 2017.csv', 'FR 2018.csv', 'IE 2016.csv', 'IE 2017.csv', 'IE 2018.csv', 'IT 2016.csv', 'IT 2017.csv', 'IT 2018.csv', 'NL 2016.csv', 'NL 2017.csv', 'NL 2018.csv', 'NO 2016.csv', 'NO 2017.csv', 'NO 2018.csv', 'SE 2016.csv', 'SE 2017.csv', 'SE 2018.csv')
+
+for (x in data_files){
+  print (x)
+  
+
+  # import data
+  generation <- read.csv(file = x, header = TRUE, na= c("n/e", "N/A", ""))
+  
+  # remove unwanted columns
+  generation <- subset(generation, select = -c(9, 13, 16))
+  
+  # convert NAs to 0
+  generation[is.na(generation)] <- as.numeric(0)
+  
+  # rename column names
+  names(generation) <- c("Country", "Datetime",	"Biomass",	"Fossil.Brown.coal.Lignite",	"Fossil.Coal.derived.gas",	"Fossil.Gas",	"Fossil.Hard.coal",	"Fossil.Oil",	"Fossil.Peat",	"Geothermal",	"Hydro.Pumped.Storage",	"Hydro.Run.of.river.and.poundage",	"Hydro.Water.Reservoir",	"Nuclear",	"Other",	"Other.renewable",	"Solar",	"Waste",	"Wind.Offshore",	"Wind.Onshore")
+  
+  # split the datetime column to get just dates
+  dtparts <- t(as.data.frame(strsplit(generation[,2],' ')))
+  generation[2] <- dtparts[,1]
+  
+  # convert hourly data to monthly 
+  generation <- generation %>% 
+    mutate(Datetime = floor_date(as.Date(Datetime, format= "%d.%m.%Y"), "month")) %>% 
+    group_by(Datetime, Country) %>% 
+    summarise_at(1:18, sum)
+  
+  # bind data
+  gb_generation_2016_18 <- as.data.frame(rbind(gb_generation_2016_18, generation))
+
+}
+
+```
+```{r}
+
+write.csv(gb_generation_2016_18, "EU 2016-18.csv")
+
+```
+
+
