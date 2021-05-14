@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r, libraries}
-# Libraries
+#libraries
 library(readxl)
 library(tidyverse)
 library(ggplot2)
@@ -24,7 +24,7 @@ library(data.table)
 ```{r, finding monthly carbon intensities}
 
 #reading in the total carbon intensities from sheet 5
-Carbon_Intensity_Total <- read_excel("Total_Carbon_Intensity.xlsx", sheet = 5) %>% 
+Carbon_Intensity_Total <- read_excel("Total_Carbon_Intensity_2019_2020.xlsx", sheet = 5) %>% 
   mutate(Datetime = floor_date(ymd_hms(Datetime), "month"))
 
 #the Datetime is converted from year month day to year month
@@ -36,6 +36,24 @@ Monthly_Carbon_Intensity <- Carbon_Intensity_Total %>%
  summarise_at(1:12, sum)
 
 #the output csv file is written to the GitHub folder
-write.csv(Monthly_Carbon_Intensity,"/Users/chrislewis/Documents/GitHub/NationalGrid.A09/LondonLAB/Monthly_Carbon_Intensity.csv", row.names = FALSE)
+write.csv(Monthly_Carbon_Intensity,"/Users/chrislewis/Documents/GitHub/NationalGrid.A09/LondonLAB/Monthly_Carbon_Intensity_2019_2020.csv", row.names = FALSE)
 ```
 
+```{r, finding monthly data for Carbon Savings}
+
+#reading in the total carbon savings from sheet 6
+Carbon_Savings_Total <- read_excel("Total_Carbon_Intensity_2019_2020.xlsx", sheet = 6) %>% 
+  mutate(Datetime = floor_date(ymd_hms(Datetime), "month"))
+
+#the Datetime is converted from year month day to year month
+setDT(Carbon_Savings_Total)[, Datetime := format(as.Date(Datetime), "%Y-%m") ]
+
+#the monthly carbon savings are found
+Monthly_Carbon_Savings <- Carbon_Savings_Total %>% 
+ group_by(Datetime) %>% 
+ summarise_at(1:12, sum)
+
+#the output csv file is written to the GitHub folder
+write.csv(Monthly_Carbon_Savings,"/Users/chrislewis/Documents/GitHub/NationalGrid.A09/LondonLAB/Monthly_Carbon_Savings_2019_2020.csv", row.names = FALSE)
+
+```
