@@ -33,6 +33,10 @@ gb_generation_2016_18 <- subset(gb_generation_2016_18, select = -c(9, 13, 16))
 # convert NAs to 0
 gb_generation_2016_18[is.na(gb_generation_2016_18)] <- as.numeric(0)
 
+# convert negative values to 0
+gb_generation_2016_18 <- gb_generation_2016_18 %>% 
+  mutate_at(3:20, function(x) ifelse(x<0,0,x))
+
 # rename column names
 names(gb_generation_2016_18) <- c("Country", "Datetime",	"Biomass",	"Fossil.Brown.coal.Lignite",	"Fossil.Coal.derived.gas",	"Fossil.Gas",	"Fossil.Hard.coal",	"Fossil.Oil",	"Fossil.Peat",	"Geothermal",	"Hydro.Pumped.Storage",	"Hydro.Run.of.river.and.poundage",	"Hydro.Water.Reservoir",	"Nuclear",	"Other",	"Other.renewable",	"Solar",	"Waste",	"Wind.Offshore",	"Wind.Onshore")
 
@@ -64,6 +68,10 @@ for (x in data_files){
   
   # convert NAs to 0
   generation[is.na(generation)] <- as.numeric(0)
+  
+  # convert negative values to 0
+  generation <- generation %>% 
+  mutate_at(3:20, function(x) ifelse(x<0,0,x))
   
   # rename column names
   names(generation) <- c("Country", "Datetime",	"Biomass",	"Fossil.Brown.coal.Lignite",	"Fossil.Coal.derived.gas",	"Fossil.Gas",	"Fossil.Hard.coal",	"Fossil.Oil",	"Fossil.Peat",	"Geothermal",	"Hydro.Pumped.Storage",	"Hydro.Run.of.river.and.poundage",	"Hydro.Water.Reservoir",	"Nuclear",	"Other",	"Other.renewable",	"Solar",	"Waste",	"Wind.Offshore",	"Wind.Onshore")
