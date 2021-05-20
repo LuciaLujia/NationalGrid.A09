@@ -174,9 +174,38 @@ data2 %>%
 
 ```{r}
 
+data2.GB <- data2 %>% 
+  filter(Country == "GB") 
+
+# simple regression
+data2.GB %>% 
+  ggplot(aes(x=Demand, y=Gas)) +
+  geom_point() +
+  geom_smooth(method="lm", se=FALSE) +
+  theme_minimal() +
+  scale_y_continuous(labels = comma) +
+  scale_x_continuous(labels = comma)
+
+tslm(Gas ~ Demand, data=as.ts(data2.GB))
+
 # autoregression
+Demand.GB.ts <- as.ts(data2.GB["Demand"])
+ts.plot(Demand.GB.ts)
+acf(Demand.GB.ts)
+
+Gas.GB.ts <- as.ts(data2.GB["Gas"])
+ts.plot(Gas.GB.ts)
+acf(Gas.GB.ts)
+
+# white noise
+
+arima(Demand.GB.ts, order = c(0, 0, 0))
+mean(Demand.GB.ts)
+var(Demand.GB.ts)
 
 # random walk
+diff(Demand.GB.ts)
+ts.plot(diff(Demand.GB.ts))
 
 # moving average
 
