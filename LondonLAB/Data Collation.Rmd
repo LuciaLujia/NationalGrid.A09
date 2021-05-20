@@ -48,6 +48,7 @@ gb_generation_2016_18[2] <- dtparts[,1]
 gb_generation_2016_18 <- gb_generation_2016_18 %>% 
   mutate(Datetime = floor_date(as.Date(Datetime, format= "%d.%m.%Y"), "month")) %>% 
   group_by(Datetime, Country) %>% 
+  mutate_at(3:20, function(x) x/2) %>% 
   summarise_at(1:18, sum)
 
 ```
@@ -84,6 +85,7 @@ for (x in data_files){
   generation <- generation %>% 
     mutate(Datetime = floor_date(as.Date(Datetime, format= "%d.%m.%Y"), "month")) %>% 
     group_by(Datetime, Country) %>% 
+    mutate_at(3:20, function(x) x/2) %>% 
     summarise_at(1:18, sum)
   
   # bind data
