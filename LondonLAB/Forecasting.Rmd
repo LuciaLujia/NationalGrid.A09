@@ -85,6 +85,17 @@ eu_1618 <- eu_1618 %>%
   mutate(Country= as.character(str_match_all(Country, "(?<=\\().+?(?=\\))")),
          Embedded.Wind=0,
          Embedded.other=0)
+         
+
+# Combine interconnector flows 2016-2020
+flow <- rbind(flow_1618, flow_1920)
+
+# Combine generation for years 2016-2020
+eu_1920_mod <- eu_1920 %>% 
+  dplyr::select(-Demand) %>% 
+  ungroup()
+
+eu_generation <- rbind(eu_1618, eu_1920_mod)
 
 ```
 
