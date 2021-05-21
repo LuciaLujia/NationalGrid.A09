@@ -41,14 +41,14 @@ flow_1618 <- read_excel("flow_2016_2018.xlsx")
 eu_1618 <- read_csv("EU 2016-18.csv")
 
 # Import demand data for France
-#demand_1618 <- read_csv("Demand_FR.csv")
+demand_1618 <- read_csv("Demand_FR.csv")
 
 # Load data on the carbon intensities of each generation technology
 carbon_intensities <- read_excel("Technology CO2 Intensity.xlsx") 
 carbon_intensities <- carbon_intensities[3, 2:21]
 
 # Join data for 2020 and 2019
-eu_1920_raw <- rbind(eu_2019, eu_2020) %>% 
+eu_1920 <- rbind(eu_2019, eu_2020) %>% 
 # Remove negative generation, calculate total generation and compute difference between demand and generation
    mutate_at(3:23, function(x) ifelse(x<0,0,x)) 
 
@@ -76,23 +76,15 @@ flow_1920 <- as.data.frame(rbind(flow_2019, flow_2020)) %>%
   summarise_at(1:59, sum, na.rm=TRUE) 
   
   
-eu_1920 <- eu_1920_raw %>% 
+eu_1920 <- eu_1920 %>% 
   mutate(Datetime= floor_date(Datetime, "month")) %>% 
-  group_by(Country, Datetime) %>% 
+  group_by(Datetime, Country) %>% 
   summarise_at(1:21, sum, na.rm=TRUE) 
 
-
-# Convert flow and generation data to daily
-flow_1920_day <- as.data.frame(rbind(flow_2019, flow_2020)) %>%
-  mutate(Datetime= floor_date(Datetime, "day")) %>% 
-  group_by(Datetime) %>% 
-  summarise_at(1:59, sum, na.rm=TRUE) 
-  
-eu_1920_day <- eu_1920_raw %>% 
-  mutate(Datetime= floor_date(Datetime, "day")) %>% 
-  group_by(Country, Datetime) %>% 
-  summarise_at(1:21, sum, na.rm=TRUE) 
-
+eu_1618 <- eu_1618 %>% 
+  mutate(Country= as.character(str_match_all(Country, "(?<=\\().+?(?=\\))")),
+         Embedded.Wind=0,
+         Embedded.other=0)
 
 ```
 
