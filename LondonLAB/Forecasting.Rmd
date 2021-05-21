@@ -5,7 +5,7 @@ date: "12/04/2021"
 output: html_document
 ---
 
-```{r}
+```{r, warning=FALSE}
 
 # Libraries
 library(readxl)
@@ -48,7 +48,7 @@ carbon_intensities <- read_excel("Technology CO2 Intensity.xlsx")
 carbon_intensities <- carbon_intensities[3, 2:21]
 
 # Join data for 2020 and 2019
-eu_1920 <- rbind(eu_2019, eu_2020) %>% 
+eu_1920_raw <- rbind(eu_2019, eu_2020) %>% 
 # Remove negative generation, calculate total generation and compute difference between demand and generation
    mutate_at(3:23, function(x) ifelse(x<0,0,x)) 
 
@@ -76,11 +76,22 @@ flow_1920 <- as.data.frame(rbind(flow_2019, flow_2020)) %>%
   summarise_at(1:59, sum, na.rm=TRUE) 
   
   
-eu_1920 <- eu_1920 %>% 
+eu_1920 <- eu_1920_raw %>% 
   mutate(Datetime= floor_date(Datetime, "month")) %>% 
   group_by(Country, Datetime) %>% 
   summarise_at(1:21, sum, na.rm=TRUE) 
 
+
+# Convert flow and generation data to daily
+flow_1920_day <- as.data.frame(rbind(flow_2019, flow_2020)) %>%
+  mutate(Datetime= floor_date(Datetime, "day")) %>% 
+  group_by(Datetime) %>% 
+  summarise_at(1:59, sum, na.rm=TRUE) 
+  
+eu_1920_day <- eu_1920_raw %>% 
+  mutate(Datetime= floor_date(Datetime, "day")) %>% 
+  group_by(Country, Datetime) %>% 
+  summarise_at(1:21, sum, na.rm=TRUE) 
 
 
 ```
@@ -89,8 +100,9 @@ eu_1920 <- eu_1920 %>%
 
 ```{r}
 
-# colnames(eu_1920)
 
+
+# colnames(eu_1920)
 
 # merged similar energy categories together
 # category definitions https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Glossary:Fossil_fuel
@@ -111,11 +123,25 @@ data1
 # colnames(data1)
 
 
+# for daily --------------------------------------------------------
+data1_day <- eu_1920_day %>% 
+  
+  mutate(Coal = Fossil.Brown.coal.Lignite + Fossil.Hard.coal,
+         Gas = Fossil.Coal.derived.gas + Fossil.Gas,
+         Hydro = Hydro.Pumped.Storage + Hydro.Run.of.river.and.poundage + Hydro.Water.Reservoir,
+         Wind = Wind.Offshore + Wind.Onshore + Embedded.Wind,
+         Other.renewable = Other.renewable + Geothermal) %>% 
+
+  dplyr::select(-c(Fossil.Brown.coal.Lignite, Fossil.Coal.derived.gas, Fossil.Gas, Fossil.Hard.coal,
+       Fossil.Oil, Fossil.Peat, Geothermal, Hydro.Pumped.Storage, Hydro.Run.of.river.and.poundage,
+       Hydro.Water.Reservoir, Other, Wind.Offshore, Wind.Onshore, Embedded.Wind, Embedded.other))
+
+
 ```
 
 # Trend plot
 
-```{r, fig.width=12, fig.height=8}
+```{r, fig.width=12, fig.height=8, warning=FALSE}
 
 # take FR and GB as examples
 data2 <- data1 %>% 
@@ -142,7 +168,15 @@ data2 %>%
        ) + 
   facet_wrap(~Country) +
   scale_colour_manual(values=cbbPalette)
-  
+
+
+
+
+# for daily ---------------------------------------------------------------
+
+# take FR and GB as examples
+data2_day <- data1_day %>% 
+  filter(Country == c("FR","GB"))
 
 
 ```
@@ -162,15 +196,24 @@ data2 %>%
   ggcorr(method = c("pairwise", "pearson"), layout.exp = 2,label_round=2, label = TRUE,label_size = 2,hjust = 1,nbreaks = 5,size = 2,angle = -20)
 
 
-# Time series auto-correlation
-data2 %>% 
+# Correlation for daily --------------------------------------
+data2_day %>% 
+  filter(Country == "FR") %>% 
+  ggcorr(method = c("pairwise", "pearson"), layout.exp = 2,label_round=2, label = TRUE,label_size = 2,hjust = 1,nbreaks = 5,size = 2,angle = -20)
+
+data2_day %>% 
   filter(Country == "GB") %>% 
-  dplyr::select(-Datetime) %>% 
-  acf(lag.max = 6, plot = FALSE)
+  ggcorr(method = c("pairwise", "pearson"), layout.exp = 2,label_round=2, label = TRUE,label_size = 2,hjust = 1,nbreaks = 5,size = 2,angle = -20)
+
+
+data2_day %>% 
+  filter(Country == "FR") %>% 
+  dplyr::select(Nuclear, Hydro, Gas, Wind, Demand) %>% 
+  ggpairs(progress = FALSE)
 
 ```
 
-# Time series base model
+# Simple regression
 
 ```{r}
 
@@ -188,6 +231,30 @@ data2.GB %>%
 
 tslm(Gas ~ Demand, data=as.ts(data2.GB))
 
+
+# for daily ----------------------------------------------------------------
+
+data2.GB.day <- data2_day %>% 
+  filter(Country == "GB") 
+
+# simple regression for daily
+data2.GB.day %>% 
+  ggplot(aes(x=Demand, y=Gas)) +
+  geom_point() +
+  geom_smooth(method="lm", se=FALSE) +
+  theme_minimal() +
+  scale_y_continuous(labels = comma) +
+  scale_x_continuous(labels = comma)
+
+tslm(Gas ~ Demand, data=as.ts(data2.GB.day))
+
+```
+
+
+# AR & WN & RW
+
+```{r}
+
 # autoregression
 Demand.GB.ts <- as.ts(data2.GB["Demand"])
 ts.plot(Demand.GB.ts)
@@ -198,18 +265,92 @@ ts.plot(Gas.GB.ts)
 acf(Gas.GB.ts)
 
 # white noise
-
 arima(Demand.GB.ts, order = c(0, 0, 0))
 mean(Demand.GB.ts)
 var(Demand.GB.ts)
 
+
+
+# autoregression for daily
+Demand.GB.ts.day <- as.ts(data2.GB.day["Demand"])
+ts.plot(Demand.GB.ts.day)
+acf(Demand.GB.ts.day)
+
+Gas.GB.ts.day <- as.ts(data2.GB.day["Gas"])
+ts.plot(Gas.GB.ts.day)
+acf(Gas.GB.ts.day)
+
+# white noise for daily
+arima(Gas.GB.ts.day, order = c(0, 0, 0))
+mean(Gas.GB.ts.day)
+var(Gas.GB.ts.day)
+
+
+
 # random walk
-diff(Demand.GB.ts)
+diff(Demand.GB.ts) %>% ggtsdisplay()
 ts.plot(diff(Demand.GB.ts))
 
-# moving average
+# random walk for daily
+diff(Demand.GB.ts.day) %>% ggtsdisplay()
+ts.plot(diff(Demand.GB.ts.day))
 
-# ARIMA
+
+```
+
+# Moving average
+
+```{r}
+
+
+
+```
+
+
+# ARIMA 
+
+```{r}
+
+# ARIMA (non seasonal) -----------------------------------------------
+
+diff(Demand.GB.ts.day) %>% ggtsdisplay()
+
+arima_model <- auto.arima(Demand.GB.ts.day)
+summary(arima_model)
+
+# fit <- arima(Demand.GB.ts.day, order=c(3,1,0))
+# summary(fit)
+
+fit <- arima(Demand.GB.ts.day, order=c(7,1,0))
+summary(fit)
+checkresiduals(fit)
+
+autoplot(forecast(fit))
+
+# ARIMA (seasonal) -----------------------------------------------
+
+Demand.GB.ts.day %>% diff(lag = 7) %>% ggtsdisplay()
+Demand.GB.ts.day %>% diff(lag = 7) %>% diff() %>% ggtsdisplay()
+
+Demand.GB.ts.day %>%
+  arima(order=c(7,1,1), seasonal=c(0,1,1)) %>%
+  residuals() %>% ggtsdisplay()
+
+# Demand.GB.ts.day %>%
+#   arima(order=c(7,1,5), seasonal=c(0,1,1)) %>%
+#   residuals() %>% ggtsdisplay()
+
+fit <- arima(Demand.GB.ts.day, order=c(7,1,1), seasonal=c(0,1,1))
+summary(fit)
+checkresiduals(fit)
+
+autoplot(forecast(fit))
+
+```
+
+# TBD
+
+```{r}
 
 # Dynamic regression
 
