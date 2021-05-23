@@ -1,0 +1,442 @@
+---
+title: "Forecasting"
+author: "A09"
+date: "12/04/2021"
+output: 
+    html_document:
+      number_sections: true
+      highlight: haddock
+      theme: spacelab
+      toc: yes
+      toc_depth: 4
+      toc_float:
+        collapsed: false
+      fontzize: 10pt
+---
+
+```{r, warning=FALSE}
+
+# Libraries
+library(readxl)
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(zoo) # For computing moving averages 
+library(GGally)
+library(caret) 
+library(lubridate)
+library(rsample)
+library(tseries)
+library(forecast)
+library(vars)
+library(car)
+# library(HDeconometrics)
+library(Metrics)
+library(scales) # stop abbreviated labeling
+library(TSstudio) # split time series data
+library(gridExtra) # arrange plots in one place
+
+```
+
+# Load ,clean and reformat data
+
+```{r}
+#Import flow and generation data 2019-2020
+flow_2020= read_excel("Flow 2020.xlsx", sheet=2, na="NA")
+eu_2020= read_excel("EU 2020 .xlsx", sheet=2, na="NA")
+flow_2019= read_excel("Flow 2019.xlsx", sheet=2, na="NA")
+eu_2019= read_excel("EU 2019 .xlsx", sheet=2, na="NA")
+
+# Import flow and generation data from 2016-2018
+flow_1618 <- read_excel("flow_2016_2018.xlsx")
+eu_1618 <- read_csv("EU 2016-18.csv")
+
+# Import demand data for France
+# demand_1618 <- read_csv("Demand_FR.csv")
+
+# Load data on the carbon intensities of each generation technology
+carbon_intensities <- read_excel("Technology CO2 Intensity.xlsx") 
+carbon_intensities <- carbon_intensities[3, 2:21]
+
+# Join data for 2020 and 2019
+eu_1920 <- rbind(eu_2019, eu_2020) %>% 
+# Remove negative generation, calculate total generation and compute difference between demand and generation
+   mutate_at(3:23, function(x) ifelse(x<0,0,x)) 
+
+# Make interconnector flows between GB and its neighbors consistent with the rest of the dataset
+flow_2020 <- flow_2020 %>% 
+  mutate(GB.FR= -FR.GB,
+         GB.NL = -NL.GB,
+         GB.BE= -BE.GB,
+         GB.IE= -IE.GB,
+         GB.NIR= -NIR.GB
+         )
+
+flow_2019 <- flow_2019 %>% 
+  mutate(GB.FR= -FR.GB,
+         GB.NL = -NL.GB,
+         GB.BE= -BE.GB,
+         GB.IE= -IE.GB,
+         GB.NIR= -NIR.GB
+         )
+
+# Convert flow and generation data to monthly
+flow_1920 <- as.data.frame(rbind(flow_2019, flow_2020)) %>%
+  mutate(Datetime= floor_date(Datetime, "month")) %>% 
+  group_by(Datetime) %>% 
+  summarise_at(1:59, sum, na.rm=TRUE) 
+  
+  
+eu_1920 <- eu_1920 %>% 
+  mutate(Datetime= floor_date(Datetime, "month")) %>% 
+  group_by(Datetime, Country) %>% 
+  summarise_at(1:21, sum, na.rm=TRUE) 
+
+eu_1618 <- eu_1618 %>% 
+  mutate(Country= as.character(str_match_all(Country, "(?<=\\().+?(?=\\))")),
+         Embedded.Wind=0,
+         Embedded.other=0)
+ 
+# Combine relevant interconnector flows
+relevant_IF <- colnames(flow_1618)
+
+flow_1920 <- flow_1920 %>% 
+  dplyr::select(1,matches(relevant_IF))
+
+# Combine interconnector flows 2016-2020
+flow <- rbind(flow_1618, flow_1920)
+
+# Combine generation for years 2016-2020
+eu_1920_mod <- eu_1920 %>% 
+  dplyr::select(-Demand) %>% 
+  ungroup()
+
+eu_generation <- rbind(eu_1618, eu_1920_mod)
+
+```
+
+# Merge attributes
+
+```{r}
+
+
+
+colnames(eu_generation)
+
+data1 <- eu_generation %>% 
+  
+  mutate(Hydro = Hydro.Pumped.Storage + Hydro.Run.of.river.and.poundage + Hydro.Water.Reservoir,
+         Wind = Wind.Offshore + Wind.Onshore + Embedded.Wind,
+         Other.renewable = Other.renewable + Geothermal,
+         total_generation =  Biomass+Fossil.Brown.coal.Lignite+Fossil.Coal.derived.gas+Fossil.Gas+
+                 Fossil.Hard.coal+Fossil.Oil+Fossil.Peat+Geothermal+Hydro.Pumped.Storage+
+                 Hydro.Run.of.river.and.poundage+Hydro.Water.Reservoir+Nuclear+
+                 Other+Other.renewable+Solar+Waste+Wind.Offshore+Wind.Onshore+Embedded.Wind+Embedded.other
+         ) %>% 
+
+  dplyr::select(-c(Geothermal, Hydro.Pumped.Storage, Hydro.Run.of.river.and.poundage,
+       Hydro.Water.Reservoir, Wind.Offshore, Wind.Onshore, Embedded.Wind))
+
+data1
+
+# colnames(data1)
+
+```
+
+# Trend plot
+
+```{r, fig.width=12, fig.height=8, warning=FALSE}
+
+# Plot
+
+cbbPalette <- c("#000000", "#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+agg_data <- eu_generation %>% 
+  
+  filter(Country == c("FR","GB")) %>% 
+
+  mutate(Coal = Fossil.Brown.coal.Lignite + Fossil.Hard.coal,
+         Gas = Fossil.Coal.derived.gas + Fossil.Gas,
+         Hydro = Hydro.Pumped.Storage + Hydro.Run.of.river.and.poundage + Hydro.Water.Reservoir,
+         Wind = Wind.Offshore + Wind.Onshore + Embedded.Wind,
+         Other.renewable = Other.renewable + Geothermal,
+         total_generation =  Biomass+Fossil.Brown.coal.Lignite+Fossil.Coal.derived.gas+Fossil.Gas+
+               Fossil.Hard.coal+Fossil.Oil+Fossil.Peat+Geothermal+Hydro.Pumped.Storage+
+               Hydro.Run.of.river.and.poundage+Hydro.Water.Reservoir+Nuclear+
+               Other+Other.renewable+Solar+Waste+Wind.Offshore+Wind.Onshore+Embedded.Wind+Embedded.other
+         ) %>% 
+  
+  dplyr::select(-c(Fossil.Brown.coal.Lignite, Fossil.Coal.derived.gas, Fossil.Gas, Fossil.Hard.coal,
+       Fossil.Oil, Fossil.Peat, Geothermal, Hydro.Pumped.Storage, Hydro.Run.of.river.and.poundage,
+       Hydro.Water.Reservoir, Other, Wind.Offshore, Wind.Onshore, Embedded.Wind, Embedded.other)) 
+  
+agg_data %>% 
+  pivot_longer(cols = colnames(agg_data)[3:12], names_to = "Energy.Type", values_to = "Megawatt") %>% 
+  filter(Energy.Type != "total_generation") %>% 
+  ggplot(mapping = aes(x = Datetime, y = Megawatt, colour = Energy.Type)) +
+  geom_line(size = 1.5) + 
+  theme_minimal() + 
+  scale_y_continuous(labels = comma) + 
+  labs(title = "Energy Generation", 
+       x = "Months", 
+       y = "Megawatt (MW)"
+       ) + 
+  facet_wrap(~Country) +
+  scale_colour_manual(values=cbbPalette)
+
+
+```
+
+
+# Correlation
+
+```{r, warning=FALSE}
+
+# Correlation
+cor_FR <- agg_data %>% 
+  filter(Country == "FR") %>% 
+  ggcorr(method = c("pairwise", "pearson"), layout.exp = 2,label_round=2, label = TRUE,label_size = 2,hjust = 1,nbreaks = 5,size = 2,angle = -20, legend.size = 6)
+
+cor_GB <- agg_data %>% 
+  filter(Country == "GB") %>% 
+  ggcorr(method = c("pairwise", "pearson"), layout.exp = 2,label_round=2, label = TRUE,label_size = 2,hjust = 1,nbreaks = 5,size = 2,angle = -20, legend.size = 6)
+
+grid.arrange(cor_FR,cor_GB,nrow=1)
+
+# ggpairs
+agg_data %>% 
+  filter(Country == "FR") %>% 
+  dplyr::select(Nuclear, Hydro, Wind, Gas, Coal, total_generation) %>% 
+  ggpairs(progress = FALSE)
+
+```
+
+# Simple regression
+
+```{r}
+
+# LACK OF DEMAND DATA
+
+# agg_data.GB <- agg_data %>% 
+#   filter(Country == "GB") 
+# 
+# # simple regression
+# agg_data.GB %>% 
+#   ggplot(aes(x=Demand, y=Gas)) +
+#   geom_point() +
+#   geom_smooth(method="lm", se=FALSE) +
+#   theme_minimal() +
+#   scale_y_continuous(labels = comma) +
+#   scale_x_continuous(labels = comma)
+# 
+# tslm(Gas ~ Demand, data=as.ts(agg_data.GB))
+
+```
+
+
+# AR & WN & RW
+
+```{r, fig.height=3, fig.width=5}
+
+# autoregression
+# Demand.GB.ts <- as.ts(data2.GB["Demand"])
+# ts.plot(Demand.GB.ts)
+# acf(Demand.GB.ts)
+# 
+# Gas.GB.ts <- as.ts(data2.GB["Gas"])
+# ts.plot(Gas.GB.ts)
+# acf(Gas.GB.ts)
+
+data1.GB <- data1 %>% filter(Country == "GB")
+
+# GB.ts <- as.ts(data1.GB)
+# ts.plot(GB.ts)
+
+acf(as.ts(data1.GB["Biomass"])) # not seasonal
+acf(as.ts(data1.GB["Fossil.Gas"])) # seasonal 
+acf(as.ts(data1.GB["Fossil.Hard.coal"])) # seasonal 
+acf(as.ts(data1.GB["Nuclear"])) # not seasonal
+acf(as.ts(data1.GB["Other"])) # not seasonal
+acf(as.ts(data1.GB["Solar"])) # seasonal 
+acf(as.ts(data1.GB["Hydro"])) # seasonal 
+acf(as.ts(data1.GB["Wind"])) # seasonal 
+acf(as.ts(data1.GB["total_generation"])) # seasonal 
+
+
+generation.ts <- as.ts(data1.GB["total_generation"])
+ts.plot(generation.ts)
+
+# # white noise
+# arima(Demand.GB.ts, order = c(0, 0, 0))
+# mean(Demand.GB.ts)
+# var(Demand.GB.ts)
+# 
+# # random walk
+# diff(Demand.GB.ts) %>% ggtsdisplay()
+# ts.plot(diff(Demand.GB.ts))
+
+```
+
+# Moving average
+
+```{r}
+
+
+
+```
+
+# Generation
+
+## ARIMA 
+
+```{r}
+
+# ARIMA (non seasonal) -----------------------------------------------
+
+diff(generation.ts) %>% ggtsdisplay()
+
+arima_model <- auto.arima(generation.ts)
+summary(arima_model)
+
+
+fit <- arima(generation.ts, order=c(5,1,0))
+summary(fit)
+
+checkresiduals(fit)
+
+autoplot(forecast(fit))
+
+# ARIMA (seasonal) -----------------------------------------------
+
+generation.ts %>% diff(lag = 5) %>% ggtsdisplay()
+generation.ts %>% diff(lag = 5) %>% diff() %>% ggtsdisplay()
+
+generation.ts %>%
+  arima(order=c(5,1,1), seasonal=c(0,1,1)) %>%
+  residuals() %>% ggtsdisplay()
+
+# generation.ts %>%
+#   arima(order=c(5,1,11), seasonal=c(0,1,1)) %>%
+#   residuals() %>% ggtsdisplay()
+
+fit <- arima(generation.ts, order=c(5,1,1), seasonal=c(0,1,1))
+summary(fit)
+
+checkresiduals(fit)
+
+autoplot(forecast(fit))
+
+```
+
+## ARIMA Prediction
+
+```{r}
+
+split_generation <- ts_split(ts.obj = generation.ts)
+training <- split_generation$train
+testing <- split_generation$test
+
+fit <- arima(training, order=c(5,1,1), seasonal=c(0,1,1))
+summary(fit)
+
+checkresiduals(fit)
+
+autoplot(forecast(fit,20))
+autoplot(generation.ts)
+
+```
+
+# Fossil.Gas
+
+## ARIMA 
+
+```{r}
+
+
+Fossil.Gas.ts <- as.ts(data1.GB["Fossil.Gas"])
+ts.plot(Fossil.Gas.ts)
+
+
+# AR (non seasonal) -----------------------------------------------
+
+diff(Fossil.Gas.ts) %>% ggtsdisplay()
+diff(Fossil.Gas.ts) %>% diff() %>% ggtsdisplay()
+
+Fossil.Gas.ts %>% ggtsdisplay()
+
+arima_model <- auto.arima(Fossil.Gas.ts)
+summary(arima_model)
+
+
+fit <- arima(Fossil.Gas.ts, order=c(1,2,1))
+summary(fit)
+
+checkresiduals(fit)
+
+autoplot(forecast(fit))
+
+
+# ARIMA (seasonal) -----------------------------------------------
+
+Fossil.Gas.ts %>% diff(lag = 5) %>% ggtsdisplay()
+Fossil.Gas.ts %>% diff(lag = 5) %>% diff() %>% ggtsdisplay()
+
+Fossil.Gas.ts %>%
+  arima(order=c(2,2,1), seasonal=c(1,1,5)) %>%
+  residuals() %>% ggtsdisplay()
+
+# generation.ts %>%
+#   arima(order=c(5,1,11), seasonal=c(0,1,1)) %>%
+#   residuals() %>% ggtsdisplay()
+
+fit <- arima(Fossil.Gas.ts, order=c(2,2,1), seasonal=c(1,1,5))
+summary(fit)
+
+checkresiduals(fit)
+
+autoplot(forecast(fit))
+
+```
+
+## ARIMA Prediction
+
+```{r}
+
+split_fossil_gas <- ts_split(ts.obj = Fossil.Gas.ts)
+training <- split_fossil_gas$train
+testing <- split_fossil_gas$test
+
+fit <- arima(training, order=c(2,2,1), seasonal=c(1,1,5))
+summary(fit)
+
+checkresiduals(fit)
+
+autoplot(forecast(fit))
+autoplot(Fossil.Gas.ts)
+
+```
+
+
+# Predict % change or log
+
+```{r}
+
+
+
+
+
+```
+
+
+# TBD
+
+```{r}
+
+# Dynamic regression
+
+# Dynamic harmonic regression
+
+# TBATS
+
+```
+
