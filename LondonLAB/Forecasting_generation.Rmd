@@ -417,13 +417,97 @@ autoplot(Fossil.Gas.ts)
 ```
 
 
-# Predict % change or log
+# Nuclear
+
+## ARIMA 
 
 ```{r}
 
+Nuclear.ts <- as.ts(data1.GB["Nuclear"])
+ts.plot(Nuclear.ts)
+
+
+# AR (non seasonal) -----------------------------------------------
+
+diff(Nuclear.ts) %>% ggtsdisplay()
+diff(Nuclear.ts) %>% diff() %>% ggtsdisplay()
+
+Nuclear.ts %>% ggtsdisplay()
+
+arima_model <- auto.arima(Nuclear.ts)
+summary(arima_model)
+
+
+fit <- arima(Nuclear.ts, order=c(1,2,2))
+summary(fit)
+
+checkresiduals(fit)
+
+autoplot(forecast(fit))
+
+
+# ARIMA (seasonal) -----------------------------------------------
+
+Nuclear.ts %>% diff(lag = 2) %>% ggtsdisplay()
+Nuclear.ts %>% diff(lag = 2) %>% diff() %>% ggtsdisplay()
+
+Nuclear.ts %>%
+  arima(order=c(1,2,2), seasonal=c(0,2,2)) %>%
+  residuals() %>% ggtsdisplay()
+
+# generation.ts %>%
+#   arima(order=c(5,1,11), seasonal=c(0,1,1)) %>%
+#   residuals() %>% ggtsdisplay()
+
+fit <- arima(Nuclear.ts, order=c(1,2,2), seasonal=c(0,2,2))
+summary(fit)
+
+checkresiduals(fit)
+
+autoplot(forecast(fit))
+
+```
+
+## ARIMA Prediction
+
+```{r}
+
+split_nuclear <- ts_split(ts.obj = Nuclear.ts)
+training <- split_nuclear$train
+testing <- split_nuclear$test
+
+fit <- arima(training, order=c(1,2,2), seasonal=c(1,2,2))
+summary(fit)
+
+checkresiduals(fit)
+
+autoplot(forecast(fit))
+autoplot(Nuclear.ts)
+
+```
+
+
+# TBATS
+
+```{r}
+
+split_nuclear <- ts_split(ts.obj = Nuclear.ts)
+training <- split_nuclear$train
+testing <- split_nuclear$test
+
+fit <- tbats(training)
+autoplot(forecast(fit))
+autoplot(Nuclear.ts)
 
 
 
+split_fossil_gas <- ts_split(ts.obj = Fossil.Gas.ts)
+training <- split_fossil_gas$train
+testing <- split_fossil_gas$test
+
+fit <- tbats(training)
+autoplot(forecast(fit))
+autoplot(Fossil.Gas.ts)
 
 ```
 
@@ -436,7 +520,7 @@ autoplot(Fossil.Gas.ts)
 
 # Dynamic harmonic regression
 
-# TBATS
+
 
 ```
 
