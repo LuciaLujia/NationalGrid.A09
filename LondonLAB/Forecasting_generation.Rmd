@@ -511,6 +511,55 @@ autoplot(Fossil.Gas.ts)
 
 ```
 
+# VAR [BEST SO FAR]
+
+```{r}
+
+Biomass.ts <- as.ts(data1.GB["Biomass"]) # not seasonal
+Fossil.Gas.ts <- as.ts(data1.GB["Fossil.Gas"]) # seasonal 
+Fossil.Hard.coal.ts <- as.ts(data1.GB["Fossil.Hard.coal"]) # seasonal 
+Nuclear.ts <- as.ts(data1.GB["Nuclear"]) # not seasonal
+Other.ts <- as.ts(data1.GB["Other"]) # not seasonal
+Solar.ts <- as.ts(data1.GB["Solar"]) # seasonal 
+Hydro.ts <- as.ts(data1.GB["Hydro"]) # seasonal 
+Wind.ts <- as.ts(data1.GB["Wind"]) # seasonal 
+# total_generation.ts <- as.ts(data1.GB["total_generation"]) # seasonal 
+
+v1 <- cbind(Biomass.ts, Fossil.Gas.ts, Fossil.Hard.coal.ts, Nuclear.ts, Other.ts,
+            Solar.ts, Hydro.ts, Wind.ts)
+
+colnames(v1) <- cbind("Biomass","Fossil.Gas","Fossil.Hard.coal", "Nuclear",
+                      "Other", "Solar", "Hydro", "Wind")
+
+
+# lagselect <- VARselect(v1, lag.max = 15, type = "const")
+# lagselect$selection
+# 
+# 
+# Model1 <- VAR(v1, p = 5, type = "const", season = NULL, exog = NULL) 
+# # summary(Model1)
+# 
+# Stability1 <- stability(Model1, type = "OLS-CUSUM")
+
+
+
+# FORCAST TEST
+training <- v1[1:55,]
+testing <- v1[56:60,]
+
+lagselect <- VARselect(training, lag.max = 15, type = "const")
+lagselect$selection
+
+Model1 <- VAR(training, p = 5, type = "const", season = NULL, exog = NULL) 
+forecast <- predict(Model1, n.ahead = 5, ci = 0.95)
+
+fanchart(forecast, names = "Biomass", main = "Fanchart for Biomass", xlab = "Horizon", ylab = "Biomass")
+autoplot(Biomass.ts)
+
+fanchart(forecast, names = "Fossil.Gas", main = "Fanchart for Fossil.Gas", xlab = "Horizon", ylab = "Biomass")
+autoplot(Fossil.Gas.ts)
+
+```
 
 # TBD
 
