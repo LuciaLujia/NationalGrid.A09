@@ -310,4 +310,25 @@ for (i in (1:length(original_list))){
 
 
 
+# Prediction
+
+```{r, message=FALSE}
+
+# Model building
+Model <- VAR(v1, p = 5, type = "const", season = 4, exog = NULL) 
+
+# Stability Test
+Stability <- stability(Model, type = "OLS-CUSUM")
+plot(Stability)
+
+# Forcasting
+forecast <- predict(Model, n.ahead = 5, ci = 0.95)
+
+# Plot results
+for (i in (1:length(original_list))){
+  p <- fanchart(forecast, names = original_name_list[[i]], main = cat("Fanchart for",original_name_list[[i]]), xlab = "Horizon", ylab = original_name_list[[i]])
+  show(p)
+}
+
+```
 
