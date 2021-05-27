@@ -24,6 +24,8 @@ library(HDeconometrics)
 library(scales)
 library(TTR)
 library(fpp2)
+library(urca)
+library(MTS)
 
 ```
 
@@ -160,152 +162,18 @@ write_csv(green_energy_P, "eu_monthly_green_energy.csv")
 ```
 
 
-### Vector Autoregression
-
-#### Daily Data
+# Univariate Forecasting
 
 ```{r fig.height=8, fig.width=12}
 
-GB_data <- read_excel("GB_Data.xlsx", sheet=1) %>% 
-  mutate(Datetime= floor_date(ymd_hms(Datetime),"day")) 
+# Function to calculate mape
+mape <- function(actual,pred){
+  mape <- mean(abs((actual - pred)/actual))*100
+  return (mape)
+}
 
-GB_original_data <- GB_data %>% 
-  group_by(Datetime) %>% 
-  summarise_at(1:12, sum) 
-
-GB_data <- GB_data %>% 
-  group_by(Datetime) %>% 
-  summarise_at(1:12, sum) %>% 
-  dplyr::select(-1)
-
-# Split into training and test sets
-GB_data_train <- GB_data[1:650,]
-GB_data_test <- GB_data[651:731,]
-
-# Run the augmented dickey-fuller test on all time-series to check for stationarity
-apply(GB_data_train,2,adf.test)
-
-# Difference each time series to make them all stationary 
-GB_data_train <- as.data.frame(apply(GB_data_train,2, diff, differences = 1))
-
-lagselect <- VARselect(GB_data_train %>% dplyr::select(1:12), lag.max = 40, type = "const")
-lagselect$selection
-
-Model1 <- VAR(GB_data_train %>% dplyr::select(1:12), p =40 , type = "const", season = NULL, exog = NULL) 
-summary(Model1)
-
-# Test for serial correlation in the residuals 
-serial.test(Model1, lags.pt=40, type = "PT.asymptotic")
-
-# Since we reject the null hypothesis that there is no serial correlation the model still has autocorrelation between the errors : there is still variance that is not explained by the model
-
-# Test for causality
-#causality(Model1 , cause = "Demand", vcov.=NULL, boot=FALSE, boot.runs=100)
-
-# Make predictions
-forecast <- predict(Model1, n.ahead = 81, ci = 0.95)
-
-forecast <- as.data.frame(forecast$fcst) %>% 
-  dplyr::select(1,5,9,13,17,21,25,29,33,37,41,45)
-
-forecast <- as.matrix(forecast)
-
-forecast <- as.data.frame(diffinv(forecast, lag=1, xi= as.matrix(GB_data[650,])))
-
-new_names <- colnames(GB_data_test)
-old_names <- colnames(forecast)
-
-values = seq(from = as.Date("2020-10-11"), to = as.Date("2020-12-31"), by = 'day')
-
-forecast <- forecast %>% 
-rename_at(vars(old_names), ~ new_names) %>% 
-mutate(Datetime = values, .before= Biomass) %>% 
-slice(2:n()) %>% 
-mutate_at(2:8, function(x) ifelse(x<0,0,x))
-
-forecast_dat <- forecast %>% 
-  dplyr::select(-1)
-
-test_dat <- original_data %>% 
-  slice(651:731) %>% 
-  dplyr::select(-1)
-
-# Compute model evaluation metrics
-rmse(as.matrix(test_dat), as.matrix(forecast_dat))
-mae(as.matrix(test_dat), as.matrix(forecast_dat))
-
-GB_forecast_data <- as.data.frame(rbind(GB_original_data[1:650,], forecast))
-
-# Plot forecast vs actual
-
-ggplot(data= GB_forecast_data %>% 
-         mutate(demand_MA= rollmean(Demand, k = 7, fill = NA))
-       )+
-  geom_line(aes(x= Datetime, y=demand_MA), color="red")+
-  geom_line(data= GB_original_data %>% 
-              mutate(demand_MA= rollmean(Demand, k = 7, fill = NA))
-            ,aes(x= Datetime, y=demand_MA))+
-  theme_minimal()+
-  labs(
-    title= "Forecasted versus actual demand in Great Britain",
-    y="Demand (MWh)",
-    x=element_blank()
-  )+
-  theme(plot.title = element_text(size = 16, face = "bold"))
-
-
-ggplot(data= GB_forecast_data %>% 
-         mutate(renewables_MA= rollmean(Renewables, k = 30, fill = NA))
-       )+
-  geom_line(aes(x= Datetime, y=renewables_MA), color="red")+
-  geom_line(data= GB_original_data %>% 
-              mutate(renewables_MA= rollmean(Renewables, k = 30, fill = NA))
-            ,aes(x= Datetime, y=renewables_MA))+
-  theme_minimal()+
-  labs(
-    title= "Forecasted versus actual generation from Renewables in Great Britain",
-    y="Generation from Renewables (MWh)",
-    x=element_blank()
-  )+
-  theme(plot.title = element_text(size = 16, face = "bold"))
-  
-
-ggplot(data= GB_forecast_data %>% 
-         mutate(fossil_gas_MA= rollmean(Fossil.Gas, k = 30, fill = NA))
-       )+
-  geom_line(aes(x= Datetime, y=fossil_gas_MA), color="red")+
-  geom_line(data= GB_original_data %>% 
-              mutate(fossil_gas_MA= rollmean(Fossil.Gas, k = 30, fill = NA))
-            ,aes(x= Datetime, y=fossil_gas_MA))+
-  theme_minimal()+
-  labs(
-    title= "Forecasted versus actual generation from Gas in Great Britain",
-    y="Generation from Gas (MWh)",
-    x=element_blank()
-  )+
-  theme(plot.title = element_text(size = 16, face = "bold"))
-
-
-ggplot(data= GB_forecast_data %>% 
-         mutate(gbfr_MA= rollmean(GB.FR, k = 30, fill = NA))
-       )+
-  geom_line(aes(x= Datetime, y=gbfr_MA), color="red")+
-  geom_line(data= GB_original_data %>% 
-              mutate(gbfr_MA= rollmean(GB.FR, k = 30, fill = NA))
-            ,aes(x= Datetime, y= gbfr_MA))+
-  theme_minimal()+
-  labs(
-    title= "Forecasted versus actual trade between Great Britain and France",
-    y="Interconnector Flow (MWh)",
-    x=element_blank()
-  )+
-  theme(plot.title = element_text(size = 16, face = "bold"))
-
-forecast$fcst
 
 ```
-
-# Univariate Forecasting
 
 ```{r fig.height=8, fig.width=12}
 
@@ -316,59 +184,246 @@ eu_carbon_intensity  %>%
   dplyr::select(-1) %>% 
   ggcorr(method = c("pairwise", "pearson"), layout.exp = 2,label_round=2, label = TRUE,label_size = 2,hjust = 1,nbreaks = 5,size = 2,angle = -20)
 
-# Visualize the change in carbon intensities over time
+# Visualize the change in carbon intensities over time- Great Britain
 eu_carbon_intensity %>% 
   pivot_longer(cols=2:15, names_to="Country", values_to= "carbon_intensity") %>% 
   filter(Country=="GB") %>% 
   ggplot(aes(x=Datetime, y= carbon_intensity))+
   geom_line()
 
+```
 
-# Run the augmented dickey-fuller test on all time-series to check for stationarity
-apply(eu_carbon_intensity %>% dplyr::select(-1),2,adf.test)
+```{r fig.height=8, fig.width=12}
 
 GB_data <- eu_carbon_intensity %>% dplyr::select(1,8)
 # Split into training and test sets
-GB_data_train <- GB_data[1:50,] 
-GB_data_test <- GB_data[51:60,]
+GB_data_train <- GB_data[1:52,] 
+GB_data_test <- GB_data[53:60,]
 
-GB_ts <- ts(GB_data_train[, 2], start = c(2016, 1), end = c(2020, 02), frequency = 12)
+GB_ts <- ts(GB_data_train$GB, start = c(2016, 1), end = c(2020, 04), frequency = 12)
+GB_ts_test <- ts(GB_data_test[, 2], start = c(2020, 5), end = c(2020, 12), frequency = 12)
 
-# test for autocorrelation 
+# Decompose time series- multiplicative: Classical Decomposition
+GB_ts %>% decompose(type="multiplicative") %>%
+  autoplot() 
+
+#Seasonal and Trend decomposition using Loess
+STL <- GB_ts%>%
+  stl(t.window=13, s.window="periodic", robust=TRUE) 
+
+STL %>% forecast() %>%
+  autoplot() 
+
+# Box-Cox transformations
+#lambda <- BoxCox.lambda(GB_ts)
+#autoplot(BoxCox(GB_ts,lambda))
+
+# Test for autocorrelation 
 Acf(GB_ts, lag.max = 20)
+
+#Evidence of autocorrelation at lags 0,1,2,10,11,12
+
+# Checking whether the time-series is stationary or not using KPSS test
+GB_ts %>% ur.kpss() %>% summary()
+
+####################### 
+# KPSS Unit Root Test # 
+####################### 
+
+#Test is of type: mu with 3 lags. 
+
+#Value of test-statistic is: 0.9054 
+
+#Critical value for a significance level of: 
+#                10pct  5pct 2.5pct  1pct
+#critical values 0.347 0.463  0.574 0.739
+
+#p value is >0.05 and hence no differencing is needed since we cannot reject the null hypothesis of stationarity 
+
+GB_ts %>% log() %>% diff(lag=12) %>% nsdiffs()
+#  seasonal differencing should be done 
+
+```
+
+```{r fig.height=8, fig.width=12}
+
+# Naive model
+model_naive <-snaive(GB_ts, h=8)
+
+for_naive <- forecast::forecast(model_naive, h = 8)
+df_naive = as.data.frame(for_naive)
+GB_data_test$naive = df_naive$`Point Forecast`
+mape(GB_data_test$GB, GB_data_test$naive) 
+
+checkresiduals(naive_mod)
+
+```
+
+```{r fig.height=8, fig.width=12}
+
+# Holt-Winters Seasonal Method
+
+hw_a <- hw(GB_ts,seasonal="additive")
+hw_m<- hw(GB_ts,seasonal="multiplicative")
+
+autoplot(GB_ts) +
+  autolayer(GB_ts_test)+
+  autolayer(hw_a, series="HW additive forecasts", PI=TRUE) +
+  autolayer(hw_m, series="HW multiplicative forecasts",
+    PI=TRUE) 
+
+# Fitting ETS models to GB_ts 
+
+etsfc <- GB_ts %>% 
+  ets(model="MAA", damped=FALSE) 
+
+summary(etsfc)
+autoplot(etsfc)
+
+for_ets <- etsfc %>% forecast(h=8) 
+df_ets = as.data.frame(for_ets)
+GB_data_test$ets = df_ets$`Point Forecast`
+mape(GB_data_test$GB, GB_data_test$ets)
+
+
+# MAM - 15.78644 
+# AAA -15.87609
+# MAA - 15.81459
+
+
+```
+
+```{r fig.height=8, fig.width=12}
+
+# ARIMA
+model_arima <- Arima(GB_ts, order=c(5,1,1),
+  seasonal=c(2,1,1), lambda = 0)
+summary(model_arima)
+plot(GB_ts)
+lines(fitted(model_arima), col="blue")
+
+for_arima <- forecast::forecast(model_arima, h = 8)
+df_arima = as.data.frame(for_arima)
+GB_data_test$arima = df_arima$`Point Forecast`
+mape(GB_data_test$GB, GB_data_test$arima) 
+
+# 0rder=c(5,1,1), seasonal=c(2,1,2), lambda=0 - #MAPE 6.892643 # AICc=-45.5
+# 0rder=c(5,1,1), seasonal=c(2,1,1), lambda=0 - # MAPE 6.180747 # AICc=-48.72
+
+res <- residuals(model_arima)
+autoplot(res) + ylab("") 
+ggAcf(res) + ggtitle("ACF of residuals")
+gghistogram(res) + ggtitle("Histogram of residuals")
+Box.test(res, lag=10, fitdf=0)
+Box.test(res,lag=12, fitdf=0, type="Lj")
+checkresiduals(model_arima)
+
+autoplot(GB_ts) +
+  autolayer(for_arima)+
+  autolayer(GB_ts_test)
+  
 
 #TBATS
 model_tbats <- tbats(GB_ts)
 summary(model_tbats)
 
-for_tbats <- forecast::forecast(model_tbats, h = 10)
+for_tbats <- forecast::forecast(model_tbats, h = 8)
 df_tbats = as.data.frame(for_tbats)
 GB_data_test$tbats = df_tbats$`Point Forecast`
-mape(GB_data_test$GB, GB_data_test$tbats) # 11.41724
+mape(GB_data_test$GB, GB_data_test$tbats) # 13.33593
 
 ggplot(data=GB_data_test, aes(x=Datetime, y= GB), color= "black") +
   geom_line()+
   geom_line(aes(x=Datetime, y= tbats), color= "red")
 
-future_projections <- forecast::forecast(model_tbats, h = 60)
-p_fore = as.data.frame(future_projections)
-
-values = seq(from = as.Date("2020-03-01"), to = as.Date("2025-02-01"), by = 'month')
-
-forecast_data <- as.data.frame(cbind.data.frame(values,p_fore$`Point Forecast`))
-colnames(forecast_data)[1] <- "Datetime"
-colnames(forecast_data)[2] <- "GB"
-past_data <- GB_data_train %>% dplyr::select(Datetime, GB)
-
-
 rbind.data.frame(past_data,forecast_data) %>% 
   ggplot(aes(x=Datetime, y=GB))+
   geom_line()
 
-
 ```
 
+```{r fig.height=8, fig.width=12}
 
+NO_data <- eu_carbon_intensity %>% dplyr::select(1,13)
+
+# Visualize the change in carbon intensities over time- Great Britain
+NO_data %>% 
+  ggplot(aes(x=Datetime, y= NO))+
+  geom_line()
+
+# Split into training and test sets
+NO_data_train <- NO_data[1:52,] 
+NO_data_test <- NO_data[53:60,]
+
+NO_ts <- ts(NO_data_train$NO, start = c(2016, 1), end = c(2020, 04), frequency = 12)
+NO_ts_test <- ts(NO_data_test[, 2], start = c(2020, 5), end = c(2020, 12), frequency = 12)
+
+# Decompose time series- multiplicative: Classical Decomposition
+NO_ts %>% decompose(type="multiplicative") %>%
+  autoplot() 
+
+# Test for autocorrelation 
+Acf(NO_ts, lag.max = 20)
+
+#Evidence of autocorrelation at lags 0,1,16,17,18,19
+
+# Checking whether the time-series is stationary or not using KPSS test
+NO_ts %>% ur.kpss() %>% summary()
+
+####################### 
+# KPSS Unit Root Test # 
+####################### 
+
+#Test is of type: mu with 3 lags. 
+
+#Value of test-statistic is: 0.1493 
+
+#Critical value for a significance level of: 
+#                10pct  5pct 2.5pct  1pct
+#critical values 0.347 0.463  0.574 0.739
+
+NO_ts %>% nsdiffs()
+#  seasonal differencing does not need to be done
+
+# Naive model
+model_naive <-snaive(NO_ts, h=8)
+
+for_naive <- forecast::forecast(model_naive, h = 8)
+df_naive = as.data.frame(for_naive)
+NO_data_test$naive = df_naive$`Point Forecast`
+mape(NO_data_test$NO, NO_data_test$naive) 
+
+checkresiduals(naive_mod)
+
+# Fitting ETS models to NO_ts 
+etsfc <- NO_ts %>% 
+  ets(model="MAM", damped=FALSE) 
+
+summary(etsfc)
+autoplot(etsfc)
+
+for_ets <- etsfc %>% forecast(h=8) 
+df_ets = as.data.frame(for_ets)
+NO_data_test$ets = df_ets$`Point Forecast`
+mape(NO_data_test$NO, NO_data_test$ets)
+
+# Fitting an Arima model 
+
+model_arima <- Arima(NO_ts, order=c(0,1,1),
+  seasonal=c(0,0,1), lambda = 0)
+summary(model_arima)
+plot(NO_ts)
+lines(fitted(model_arima), col="blue")
+
+for_arima <- forecast::forecast(model_arima, h = 8)
+df_arima = as.data.frame(for_arima)
+NO_data_test$arima = df_arima$`Point Forecast`
+mape(NO_data_test$NO, NO_data_test$arima) 
+
+checkresiduals(model_arima)
+
+
+```
 
 
 
