@@ -14,7 +14,9 @@ output:
       fontzize: 10pt
 ---
 
-```{r, warning=FALSE}
+# Set Up
+
+```{r, warning=FALSE, message=FALSE}
 
 # Libraries
 library(readxl)
@@ -35,12 +37,13 @@ library(Metrics)
 library(scales) # stop abbreviated labeling
 library(TSstudio) # split time series data
 library(gridExtra) # arrange plots in one place
+library(tseries)
 
 ```
 
 # Load ,clean and reformat data
 
-```{r}
+```{r, warning=FALSE, message=FALSE}
 #Import flow and generation data 2019-2020
 flow_2020= read_excel("Flow 2020.xlsx", sheet=2, na="NA")
 eu_2020= read_excel("EU 2020 .xlsx", sheet=2, na="NA")
@@ -118,8 +121,6 @@ eu_generation <- rbind(eu_1618, eu_1920_mod)
 # Merge attributes
 
 ```{r}
-
-
 
 colnames(eu_generation)
 
@@ -211,365 +212,102 @@ agg_data %>%
 
 ```
 
-# Simple regression
-
-```{r}
-
-# LACK OF DEMAND DATA
-
-# agg_data.GB <- agg_data %>% 
-#   filter(Country == "GB") 
-# 
-# # simple regression
-# agg_data.GB %>% 
-#   ggplot(aes(x=Demand, y=Gas)) +
-#   geom_point() +
-#   geom_smooth(method="lm", se=FALSE) +
-#   theme_minimal() +
-#   scale_y_continuous(labels = comma) +
-#   scale_x_continuous(labels = comma)
-# 
-# tslm(Gas ~ Demand, data=as.ts(agg_data.GB))
-
-```
 
 
-# AR & WN & RW
+# VAR - original time series
 
-```{r, fig.height=3, fig.width=5}
+## TS data preparation
 
-# autoregression
-# Demand.GB.ts <- as.ts(data2.GB["Demand"])
-# ts.plot(Demand.GB.ts)
-# acf(Demand.GB.ts)
-# 
-# Gas.GB.ts <- as.ts(data2.GB["Gas"])
-# ts.plot(Gas.GB.ts)
-# acf(Gas.GB.ts)
+```{r, warning = FALSE}
 
+# Extract country data
 data1.GB <- data1 %>% filter(Country == "GB")
 
-# GB.ts <- as.ts(data1.GB)
-# ts.plot(GB.ts)
+# Create time series for each variable (exclude total generation)
+Biomass.ts <- as.ts(data1.GB["Biomass"]) 
+Fossil.Gas.ts <- as.ts(data1.GB["Fossil.Gas"]) 
+Fossil.Hard.coal.ts <- as.ts(data1.GB["Fossil.Hard.coal"]) 
+Nuclear.ts <- as.ts(data1.GB["Nuclear"]) 
+Other.ts <- as.ts(data1.GB["Other"]) 
+Solar.ts <- as.ts(data1.GB["Solar"]) 
+Hydro.ts <- as.ts(data1.GB["Hydro"]) 
+Wind.ts <- as.ts(data1.GB["Wind"]) 
 
-acf(as.ts(data1.GB["Biomass"])) # not seasonal
-acf(as.ts(data1.GB["Fossil.Gas"])) # seasonal 
-acf(as.ts(data1.GB["Fossil.Hard.coal"])) # seasonal 
-acf(as.ts(data1.GB["Nuclear"])) # not seasonal
-acf(as.ts(data1.GB["Other"])) # not seasonal
-acf(as.ts(data1.GB["Solar"])) # seasonal 
-acf(as.ts(data1.GB["Hydro"])) # seasonal 
-acf(as.ts(data1.GB["Wind"])) # seasonal 
-acf(as.ts(data1.GB["total_generation"])) # seasonal 
+original_list <- list(Biomass.ts, Fossil.Gas.ts, Fossil.Hard.coal.ts, Nuclear.ts, Other.ts, Solar.ts, Hydro.ts, Wind.ts)
 
+original_name_list <- list("Biomass","Fossil.Gas","Fossil.Hard.coal", "Nuclear", "Other", "Solar", "Hydro", "Wind")
 
-generation.ts <- as.ts(data1.GB["total_generation"])
-ts.plot(generation.ts)
+# Visualize time series data for each energy generation type
+for (i in (1:length(original_list))){
+  p <- ts_plot(original_list[[i]], title = original_name_list[[i]])
+  show(p)
+}
 
-# # white noise
-# arima(Demand.GB.ts, order = c(0, 0, 0))
-# mean(Demand.GB.ts)
-# var(Demand.GB.ts)
-# 
-# # random walk
-# diff(Demand.GB.ts) %>% ggtsdisplay()
-# ts.plot(diff(Demand.GB.ts))
+# Use Phillips Perron to example if the variables are stationary or not
+for (i in (1:length(original_list))){
+  p <- pp.test(original_list[[i]])$p.value
+  cat(original_name_list[[i]],": p value is", p,"\n")
+}
 
-```
-
-# Moving average
-
-```{r}
-
-
+# Use Augmented Dickey–Fuller Test to example if the variables are stationary or not
+for (i in (1:length(original_list))){
+  p <- adf.test(original_list[[i]])$p.value
+  cat(original_name_list[[i]],": p value is", p,"\n")
+}
 
 ```
 
-# Generation
 
-## ARIMA 
+## Model
 
-```{r}
+```{r, warning = FALSE}
 
-# ARIMA (non seasonal) -----------------------------------------------
+# construct time series multivariables
+v1 <- cbind(Biomass.ts, Fossil.Gas.ts, Fossil.Hard.coal.ts, Nuclear.ts, Other.ts, Solar.ts, Hydro.ts, Wind.ts)
 
-diff(generation.ts) %>% ggtsdisplay()
+colnames(v1) <- cbind("Biomass","Fossil.Gas","Fossil.Hard.coal", "Nuclear", "Other", "Solar", "Hydro", "Wind")
 
-arima_model <- auto.arima(generation.ts)
-summary(arima_model)
-
-
-fit <- arima(generation.ts, order=c(5,1,0))
-summary(fit)
-
-checkresiduals(fit)
-
-autoplot(forecast(fit))
-
-# ARIMA (seasonal) -----------------------------------------------
-
-generation.ts %>% diff(lag = 5) %>% ggtsdisplay()
-generation.ts %>% diff(lag = 5) %>% diff() %>% ggtsdisplay()
-
-generation.ts %>%
-  arima(order=c(5,1,1), seasonal=c(0,1,1)) %>%
-  residuals() %>% ggtsdisplay()
-
-# generation.ts %>%
-#   arima(order=c(5,1,11), seasonal=c(0,1,1)) %>%
-#   residuals() %>% ggtsdisplay()
-
-fit <- arima(generation.ts, order=c(5,1,1), seasonal=c(0,1,1))
-summary(fit)
-
-checkresiduals(fit)
-
-autoplot(forecast(fit))
-
-```
-
-## ARIMA Prediction
-
-```{r}
-
-split_generation <- ts_split(ts.obj = generation.ts)
-training <- split_generation$train
-testing <- split_generation$test
-
-fit <- arima(training, order=c(5,1,1), seasonal=c(0,1,1))
-summary(fit)
-
-checkresiduals(fit)
-
-autoplot(forecast(fit,20))
-autoplot(generation.ts)
-
-```
-
-# Fossil.Gas
-
-## ARIMA 
-
-```{r}
-
-
-Fossil.Gas.ts <- as.ts(data1.GB["Fossil.Gas"])
-ts.plot(Fossil.Gas.ts)
-
-
-# AR (non seasonal) -----------------------------------------------
-
-diff(Fossil.Gas.ts) %>% ggtsdisplay()
-diff(Fossil.Gas.ts) %>% diff() %>% ggtsdisplay()
-
-Fossil.Gas.ts %>% ggtsdisplay()
-
-arima_model <- auto.arima(Fossil.Gas.ts)
-summary(arima_model)
-
-
-fit <- arima(Fossil.Gas.ts, order=c(1,2,1))
-summary(fit)
-
-checkresiduals(fit)
-
-autoplot(forecast(fit))
-
-
-# ARIMA (seasonal) -----------------------------------------------
-
-Fossil.Gas.ts %>% diff(lag = 5) %>% ggtsdisplay()
-Fossil.Gas.ts %>% diff(lag = 5) %>% diff() %>% ggtsdisplay()
-
-Fossil.Gas.ts %>%
-  arima(order=c(2,2,1), seasonal=c(1,1,5)) %>%
-  residuals() %>% ggtsdisplay()
-
-# generation.ts %>%
-#   arima(order=c(5,1,11), seasonal=c(0,1,1)) %>%
-#   residuals() %>% ggtsdisplay()
-
-fit <- arima(Fossil.Gas.ts, order=c(2,2,1), seasonal=c(1,1,5))
-summary(fit)
-
-checkresiduals(fit)
-
-autoplot(forecast(fit))
-
-```
-
-## ARIMA Prediction
-
-```{r}
-
-split_fossil_gas <- ts_split(ts.obj = Fossil.Gas.ts)
-training <- split_fossil_gas$train
-testing <- split_fossil_gas$test
-
-fit <- arima(training, order=c(2,2,1), seasonal=c(1,1,5))
-summary(fit)
-
-checkresiduals(fit)
-
-autoplot(forecast(fit))
-autoplot(Fossil.Gas.ts)
-
-```
-
-
-# Nuclear
-
-## ARIMA 
-
-```{r}
-
-Nuclear.ts <- as.ts(data1.GB["Nuclear"])
-ts.plot(Nuclear.ts)
-
-
-# AR (non seasonal) -----------------------------------------------
-
-diff(Nuclear.ts) %>% ggtsdisplay()
-diff(Nuclear.ts) %>% diff() %>% ggtsdisplay()
-
-Nuclear.ts %>% ggtsdisplay()
-
-arima_model <- auto.arima(Nuclear.ts)
-summary(arima_model)
-
-
-fit <- arima(Nuclear.ts, order=c(1,2,2))
-summary(fit)
-
-checkresiduals(fit)
-
-autoplot(forecast(fit))
-
-
-# ARIMA (seasonal) -----------------------------------------------
-
-Nuclear.ts %>% diff(lag = 2) %>% ggtsdisplay()
-Nuclear.ts %>% diff(lag = 2) %>% diff() %>% ggtsdisplay()
-
-Nuclear.ts %>%
-  arima(order=c(1,2,2), seasonal=c(0,2,2)) %>%
-  residuals() %>% ggtsdisplay()
-
-# generation.ts %>%
-#   arima(order=c(5,1,11), seasonal=c(0,1,1)) %>%
-#   residuals() %>% ggtsdisplay()
-
-fit <- arima(Nuclear.ts, order=c(1,2,2), seasonal=c(0,2,2))
-summary(fit)
-
-checkresiduals(fit)
-
-autoplot(forecast(fit))
-
-```
-
-## ARIMA Prediction
-
-```{r}
-
-split_nuclear <- ts_split(ts.obj = Nuclear.ts)
-training <- split_nuclear$train
-testing <- split_nuclear$test
-
-fit <- arima(training, order=c(1,2,2), seasonal=c(1,2,2))
-summary(fit)
-
-checkresiduals(fit)
-
-autoplot(forecast(fit))
-autoplot(Nuclear.ts)
-
-```
-
-
-# TBATS
-
-```{r}
-
-split_nuclear <- ts_split(ts.obj = Nuclear.ts)
-training <- split_nuclear$train
-testing <- split_nuclear$test
-
-fit <- tbats(training)
-autoplot(forecast(fit))
-autoplot(Nuclear.ts)
-
-
-
-split_fossil_gas <- ts_split(ts.obj = Fossil.Gas.ts)
-training <- split_fossil_gas$train
-testing <- split_fossil_gas$test
-
-fit <- tbats(training)
-autoplot(forecast(fit))
-autoplot(Fossil.Gas.ts)
-
-```
-
-# VAR [BEST SO FAR]
-
-```{r}
-
-Biomass.ts <- as.ts(data1.GB["Biomass"]) # not seasonal
-Fossil.Gas.ts <- as.ts(data1.GB["Fossil.Gas"]) # seasonal 
-Fossil.Hard.coal.ts <- as.ts(data1.GB["Fossil.Hard.coal"]) # seasonal 
-Nuclear.ts <- as.ts(data1.GB["Nuclear"]) # not seasonal
-Other.ts <- as.ts(data1.GB["Other"]) # not seasonal
-Solar.ts <- as.ts(data1.GB["Solar"]) # seasonal 
-Hydro.ts <- as.ts(data1.GB["Hydro"]) # seasonal 
-Wind.ts <- as.ts(data1.GB["Wind"]) # seasonal 
-# total_generation.ts <- as.ts(data1.GB["total_generation"]) # seasonal 
-
-v1 <- cbind(Biomass.ts, Fossil.Gas.ts, Fossil.Hard.coal.ts, Nuclear.ts, Other.ts,
-            Solar.ts, Hydro.ts, Wind.ts)
-
-colnames(v1) <- cbind("Biomass","Fossil.Gas","Fossil.Hard.coal", "Nuclear",
-                      "Other", "Solar", "Hydro", "Wind")
-
-
-# lagselect <- VARselect(v1, lag.max = 15, type = "const")
-# lagselect$selection
-# 
-# 
-# Model1 <- VAR(v1, p = 5, type = "const", season = NULL, exog = NULL) 
-# # summary(Model1)
-# 
-# Stability1 <- stability(Model1, type = "OLS-CUSUM")
-
-
-
-# FORCAST TEST
+# Train test splitting
 training <- v1[1:55,]
 testing <- v1[56:60,]
 
+# select lag
 lagselect <- VARselect(training, lag.max = 15, type = "const")
 lagselect$selection
+lagselect <- VARselect(training, lag.max = 15, season = 4, type = "const")
+lagselect$selection
 
+# Model building
 Model1 <- VAR(training, p = 5, type = "const", season = NULL, exog = NULL) 
-forecast <- predict(Model1, n.ahead = 5, ci = 0.95)
+Model2 <- VAR(training, p = 5, type = "const", season = 4, exog = NULL) 
 
-fanchart(forecast, names = "Biomass", main = "Fanchart for Biomass", xlab = "Horizon", ylab = "Biomass")
-autoplot(Biomass.ts)
+# Stability Test
+Stability1 <- stability(Model1, type = "OLS-CUSUM")
+plot(Stability1)
+Stability2 <- stability(Model2, type = "OLS-CUSUM")
+plot(Stability2)
 
-fanchart(forecast, names = "Fossil.Gas", main = "Fanchart for Fossil.Gas", xlab = "Horizon", ylab = "Biomass")
-autoplot(Fossil.Gas.ts)
+# Forcasting
+forecast1 <- predict(Model1, n.ahead = 5, ci = 0.95)
+forecast2 <- predict(Model2, n.ahead = 5, ci = 0.95)
+
+# Plot results
+for (i in (1:length(original_list))){
+  p <- fanchart(forecast1, names = original_name_list[[i]], main = cat("Fanchart for",original_name_list[[i]]), xlab = "Horizon", ylab = original_name_list[[i]])
+  q <- autoplot(original_list[[i]])
+  show(p)
+  show(q)
+}
+for (i in (1:length(original_list))){
+  p <- fanchart(forecast2, names = original_name_list[[i]], main = cat("Fanchart for",original_name_list[[i]]), xlab = "Horizon", ylab = original_name_list[[i]])
+  q <- autoplot(original_list[[i]])
+  show(p)
+  show(q)
+}
 
 ```
 
-# TBD
-
-```{r}
-
-# Dynamic regression
-
-# Dynamic harmonic regression
 
 
 
-```
 

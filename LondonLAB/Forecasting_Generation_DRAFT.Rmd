@@ -1,0 +1,461 @@
+---
+title: "Forecasting_Generation_DRAFT"
+author: "Lujia Huang"
+date: "2021/5/27"
+output: 
+    html_document:
+      number_sections: true
+      highlight: haddock
+      theme: spacelab
+      toc: yes
+      toc_depth: 4
+      toc_float:
+        collapsed: false
+      fontzize: 10pt
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Set Up
+
+```{r, warning=FALSE}
+
+# Libraries
+library(readxl)
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(zoo) # For computing moving averages 
+library(GGally)
+library(caret) 
+library(lubridate)
+library(rsample)
+library(tseries)
+library(forecast)
+library(vars)
+library(car)
+# library(HDeconometrics)
+library(Metrics)
+library(scales) # stop abbreviated labeling
+library(TSstudio) # split time series data
+library(gridExtra) # arrange plots in one place
+library(tseries)
+
+```
+
+
+# Simple regression
+
+```{r}
+
+# LACK OF DEMAND DATA
+
+# agg_data.GB <- agg_data %>% 
+#   filter(Country == "GB") 
+# 
+# # simple regression
+# agg_data.GB %>% 
+#   ggplot(aes(x=Demand, y=Gas)) +
+#   geom_point() +
+#   geom_smooth(method="lm", se=FALSE) +
+#   theme_minimal() +
+#   scale_y_continuous(labels = comma) +
+#   scale_x_continuous(labels = comma)
+# 
+# tslm(Gas ~ Demand, data=as.ts(agg_data.GB))
+
+```
+
+
+# AR & WN & RW
+
+```{r, fig.height=3, fig.width=5}
+
+# autoregression
+# Demand.GB.ts <- as.ts(data2.GB["Demand"])
+# ts.plot(Demand.GB.ts)
+# acf(Demand.GB.ts)
+# 
+# Gas.GB.ts <- as.ts(data2.GB["Gas"])
+# ts.plot(Gas.GB.ts)
+# acf(Gas.GB.ts)
+
+data1.GB <- data1 %>% filter(Country == "GB")
+
+# GB.ts <- as.ts(data1.GB)
+# ts.plot(GB.ts)
+
+acf(as.ts(data1.GB["Biomass"])) # not seasonal
+acf(as.ts(data1.GB["Fossil.Gas"])) # seasonal 
+acf(as.ts(data1.GB["Fossil.Hard.coal"])) # seasonal 
+acf(as.ts(data1.GB["Nuclear"])) # not seasonal
+acf(as.ts(data1.GB["Other"])) # not seasonal
+acf(as.ts(data1.GB["Solar"])) # seasonal 
+acf(as.ts(data1.GB["Hydro"])) # seasonal 
+acf(as.ts(data1.GB["Wind"])) # seasonal 
+acf(as.ts(data1.GB["total_generation"])) # seasonal 
+
+
+generation.ts <- as.ts(data1.GB["total_generation"])
+ts.plot(generation.ts)
+
+# # white noise
+# arima(Demand.GB.ts, order = c(0, 0, 0))
+# mean(Demand.GB.ts)
+# var(Demand.GB.ts)
+# 
+# # random walk
+# diff(Demand.GB.ts) %>% ggtsdisplay()
+# ts.plot(diff(Demand.GB.ts))
+
+```
+
+# Moving average
+
+```{r}
+
+
+
+```
+
+# Generation
+
+## ARIMA 
+
+```{r}
+
+# ARIMA (non seasonal) -----------------------------------------------
+
+diff(generation.ts) %>% ggtsdisplay()
+
+arima_model <- auto.arima(generation.ts)
+summary(arima_model)
+
+
+fit <- arima(generation.ts, order=c(5,1,0))
+summary(fit)
+
+checkresiduals(fit)
+
+autoplot(forecast(fit))
+
+# ARIMA (seasonal) -----------------------------------------------
+
+generation.ts %>% diff(lag = 5) %>% ggtsdisplay()
+generation.ts %>% diff(lag = 5) %>% diff() %>% ggtsdisplay()
+
+generation.ts %>%
+  arima(order=c(5,1,1), seasonal=c(0,1,1)) %>%
+  residuals() %>% ggtsdisplay()
+
+# generation.ts %>%
+#   arima(order=c(5,1,11), seasonal=c(0,1,1)) %>%
+#   residuals() %>% ggtsdisplay()
+
+fit <- arima(generation.ts, order=c(5,1,1), seasonal=c(0,1,1))
+summary(fit)
+
+checkresiduals(fit)
+
+autoplot(forecast(fit))
+
+```
+
+## ARIMA Prediction
+
+```{r}
+
+split_generation <- ts_split(ts.obj = generation.ts)
+training <- split_generation$train
+testing <- split_generation$test
+
+fit <- arima(training, order=c(5,1,1), seasonal=c(0,1,1))
+summary(fit)
+
+checkresiduals(fit)
+
+autoplot(forecast(fit,20))
+autoplot(generation.ts)
+
+```
+
+# Fossil.Gas
+
+## ARIMA 
+
+```{r}
+
+
+Fossil.Gas.ts <- as.ts(data1.GB["Fossil.Gas"])
+ts.plot(Fossil.Gas.ts)
+
+
+# AR (non seasonal) -----------------------------------------------
+
+diff(Fossil.Gas.ts) %>% ggtsdisplay()
+diff(Fossil.Gas.ts) %>% diff() %>% ggtsdisplay()
+
+Fossil.Gas.ts %>% ggtsdisplay()
+
+arima_model <- auto.arima(Fossil.Gas.ts)
+summary(arima_model)
+
+
+fit <- arima(Fossil.Gas.ts, order=c(1,2,1))
+summary(fit)
+
+checkresiduals(fit)
+
+autoplot(forecast(fit))
+
+
+# ARIMA (seasonal) -----------------------------------------------
+
+Fossil.Gas.ts %>% diff(lag = 5) %>% ggtsdisplay()
+Fossil.Gas.ts %>% diff(lag = 5) %>% diff() %>% ggtsdisplay()
+
+Fossil.Gas.ts %>%
+  arima(order=c(2,2,1), seasonal=c(1,1,5)) %>%
+  residuals() %>% ggtsdisplay()
+
+# generation.ts %>%
+#   arima(order=c(5,1,11), seasonal=c(0,1,1)) %>%
+#   residuals() %>% ggtsdisplay()
+
+fit <- arima(Fossil.Gas.ts, order=c(2,2,1), seasonal=c(1,1,5))
+summary(fit)
+
+checkresiduals(fit)
+
+autoplot(forecast(fit))
+
+```
+
+## ARIMA Prediction
+
+```{r}
+
+split_fossil_gas <- ts_split(ts.obj = Fossil.Gas.ts)
+training <- split_fossil_gas$train
+testing <- split_fossil_gas$test
+
+fit <- arima(training, order=c(2,2,1), seasonal=c(1,1,5))
+summary(fit)
+
+checkresiduals(fit)
+
+autoplot(forecast(fit))
+autoplot(Fossil.Gas.ts)
+
+```
+
+
+# Nuclear
+
+## ARIMA 
+
+```{r}
+
+Nuclear.ts <- as.ts(data1.GB["Nuclear"])
+ts.plot(Nuclear.ts)
+
+
+# AR (non seasonal) -----------------------------------------------
+
+diff(Nuclear.ts) %>% ggtsdisplay()
+diff(Nuclear.ts) %>% diff() %>% ggtsdisplay()
+
+Nuclear.ts %>% ggtsdisplay()
+
+arima_model <- auto.arima(Nuclear.ts)
+summary(arima_model)
+
+
+fit <- arima(Nuclear.ts, order=c(1,2,2))
+summary(fit)
+
+checkresiduals(fit)
+
+autoplot(forecast(fit))
+
+
+# ARIMA (seasonal) -----------------------------------------------
+
+Nuclear.ts %>% diff(lag = 2) %>% ggtsdisplay()
+Nuclear.ts %>% diff(lag = 2) %>% diff() %>% ggtsdisplay()
+
+Nuclear.ts %>%
+  arima(order=c(1,2,2), seasonal=c(0,2,2)) %>%
+  residuals() %>% ggtsdisplay()
+
+# generation.ts %>%
+#   arima(order=c(5,1,11), seasonal=c(0,1,1)) %>%
+#   residuals() %>% ggtsdisplay()
+
+fit <- arima(Nuclear.ts, order=c(1,2,2), seasonal=c(0,2,2))
+summary(fit)
+
+checkresiduals(fit)
+
+autoplot(forecast(fit))
+
+```
+
+## ARIMA Prediction
+
+```{r}
+
+split_nuclear <- ts_split(ts.obj = Nuclear.ts)
+training <- split_nuclear$train
+testing <- split_nuclear$test
+
+fit <- arima(training, order=c(1,2,2), seasonal=c(1,2,2))
+summary(fit)
+
+checkresiduals(fit)
+
+autoplot(forecast(fit))
+autoplot(Nuclear.ts)
+
+```
+
+
+# TBATS
+
+```{r}
+
+split_nuclear <- ts_split(ts.obj = Nuclear.ts)
+training <- split_nuclear$train
+testing <- split_nuclear$test
+
+fit <- tbats(training)
+autoplot(forecast(fit))
+autoplot(Nuclear.ts)
+
+
+
+split_fossil_gas <- ts_split(ts.obj = Fossil.Gas.ts)
+training <- split_fossil_gas$train
+testing <- split_fossil_gas$test
+
+fit <- tbats(training)
+autoplot(forecast(fit))
+autoplot(Fossil.Gas.ts)
+
+```
+
+# VAR - diff time series
+
+## TS data preparation
+
+```{r, warning=FALSE}
+
+# diff
+
+# Since some of the variables are not stationary, we took the diff of variables
+diff.Biomass.ts <- diff(Biomass.ts)
+diff.Fossil.Gas.ts <- diff(Fossil.Gas.ts)
+diff.Fossil.Hard.coal.ts <- diff(Fossil.Hard.coal.ts)
+diff.Nuclear.ts <- diff(Nuclear.ts)
+diff.Other.ts <- diff(Other.ts)
+diff.Solar.ts <- diff(Solar.ts)
+diff.Hydro.ts <- diff(Hydro.ts)
+diff.Wind.ts <- diff(Wind.ts)
+
+diff_list <- list(diff.Biomass.ts, diff.Fossil.Gas.ts, diff.Fossil.Hard.coal.ts, diff.Nuclear.ts, diff.Other.ts, diff.Solar.ts, diff.Hydro.ts, diff.Wind.ts)
+
+diff_name_list <- list("diff.Biomass.ts", "diff.Fossil.Gas.ts", "diff.Fossil.Hard.coal.ts", "diff.Nuclear.ts", "diff.Other.ts", "diff.Solar.ts", "diff.Hydro.ts", "diff.Wind.ts")
+
+# Visualize time series data for each energy generation type
+for (i in (1:length(diff_list))){
+  p <- ts_plot(diff_list[[i]], title = diff_name_list[[i]])
+  show(p)
+}
+
+# Use Phillips Perron to example if the variables are stationary or not
+for (i in (1:length(diff_list))){
+  p <- pp.test(diff_list[[i]])$p.value
+  cat(diff_name_list[[i]],": p value is", p,"\n")
+}
+
+# Use Augmented Dickey–Fuller Test to example if the variables are stationary or not
+for (i in (1:length(diff_list))){
+  p <- adf.test(diff_list[[i]])$p.value
+  cat(diff_name_list[[i]],": p value is", p,"\n")
+}
+
+```
+
+## Model
+
+```{r, warning = FALSE}
+# construct time series multivariables
+v1 <- cbind(diff.Biomass.ts, diff.Fossil.Gas.ts, diff.Fossil.Hard.coal.ts, diff.Nuclear.ts, diff.Other.ts, diff.Solar.ts, diff.Hydro.ts, diff.Wind.ts)
+
+colnames(v1) <- cbind("diff.Biomass.ts", "diff.Fossil.Gas.ts", "diff.Fossil.Hard.coal.ts", "diff.Nuclear.ts", "diff.Other.ts", "diff.Solar.ts", "diff.Hydro.ts", "diff.Wind.ts")
+
+# Train test splitting
+training <- v1[1:54,]
+testing <- v1[55:59,]
+
+# select lag
+lagselect <- VARselect(training, lag.max = 15, type = "const")
+lagselect$selection
+lagselect <- VARselect(training, lag.max = 15, season = 4, type = "const")
+lagselect$selection
+
+# Model building
+Model1 <- VAR(training, p = 5, type = "const", season = NULL, exog = NULL) 
+Model2 <- VAR(training, p = 5, type = "const", season = 4, exog = NULL) 
+
+# Stability Test
+Stability1 <- stability(Model1, type = "OLS-CUSUM")
+plot(Stability1)
+Stability2 <- stability(Model2, type = "OLS-CUSUM")
+plot(Stability2)
+
+# Forcasting
+forecast1 <- predict(Model1, n.ahead = 5, ci = 0.95)
+forecast2 <- predict(Model2, n.ahead = 5, ci = 0.95)
+
+# Plot results
+for (i in (1:length(diff_list))){
+  p <- fanchart(forecast1, names = diff_name_list[[i]], main = cat("Fanchart for",diff_name_list[[i]]), xlab = "Horizon", ylab = diff_name_list[[i]])
+  q <- autoplot(diff_list[[i]])
+  show(p)
+  show(q)
+}
+for (i in (1:length(diff_list))){
+  p <- fanchart(forecast2, names = diff_name_list[[i]], main = cat("Fanchart for",diff_name_list[[i]]), xlab = "Horizon", ylab = diff_name_list[[i]])
+  q <- autoplot(diff_list[[i]])
+  show(p)
+  show(q)
+}
+
+```
+
+# TBD/Draft
+
+```{r}
+
+# Dynamic regression
+
+# Dynamic harmonic regression
+
+# # test if residuals are non-autocorrelated
+# Serial1 <- serial.test(Model1, type = "PT.asymptotic")
+# Serial1
+# Serial2 <- serial.test(Model2, type = "PT.asymptotic")
+# Serial2
+# 
+# # test degree of heteroscedasticity
+# Arch1 <- arch.test(Model1, multivariate.only = TRUE)
+# Arch1
+
+# fanchart(forecast, names = "Biomass", main = "Fanchart for Biomass", xlab = "Horizon", ylab = "Biomass")
+# autoplot(Biomass.ts)
+
+
+```
