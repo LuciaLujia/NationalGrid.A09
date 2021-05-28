@@ -1,0 +1,79 @@
+---
+title: "Data Collation"
+author: "David Nazareth (3412454)"
+date: "13/05/2021"
+output: html_document
+---
+
+```{r}
+
+# Libraries
+library(readxl)
+library(tidyverse)
+library(ggplot2)
+library(lubridate)
+
+```
+
+```{r}
+
+flow_2016 <-read_csv("RawData/Cross-Border Physical Flow_201601010000-201701010000.csv", na=c("n/e", "N/A", ""))
+flow_2017 <- read_csv("RawData/Cross-Border Physical Flow_201701010000-201801010000.csv", na=c("n/e", "N/A", ""))
+flow_2018 <- read_csv("RawData/Cross-Border Physical Flow_201801010000-201901010000.csv", na=c("n/e", "N/A", ""))
+flow_complete <- read_csv("flow_complete.csv")
+
+
+flow <- as.data.frame(rbind(flow_2016,flow_2017,flow_2018)) %>% 
+  rename(Datetime= "Time (CET)")
+
+# split the datetime column to get just dates
+dtparts <- t(as.data.frame(strsplit(flow[,1],' ')))
+flow[1] <- dtparts[,1]
+
+names(flow)[2] <- "A"
+names(flow)[3] <- "B"
+
+# convert hourly data to monthly 
+flow <- flow %>% 
+  mutate(A= ifelse(A>0,A,-B),
+         B=-A) %>% 
+  mutate(Datetime = floor_date(as.Date(Datetime, format= "%d.%m.%Y"), "month")) %>% 
+  group_by(Datetime) %>% 
+  summarise_at(1:2, sum, na.rm= TRUE)
+
+names(flow)[2] <- "IE.GB"
+names(flow)[3] <- "GB.IE"
+
+flow_complete <- left_join(flow_complete, flow, by= "Datetime")
+
+write.csv(flow_complete, "flow_complete.csv", row.names = FALSE)
+
+
+```
+
+```{r}
+
+demand_2016 <-read_csv("RawData/Total Load - Day Ahead _ Actual_201601010000-201701010000.csv", na=c("n/e", "N/A", ""))
+demand_2017 <- read_csv("RawData/Total Load - Day Ahead _ Actual_201701010000-201801010000.csv", na=c("n/e", "N/A", ""))
+demand_2018 <- read_csv("RawData/Total Load - Day Ahead _ Actual_201801010000-201901010000.csv", na=c("n/e", "N/A", ""))
+
+demand <- as.data.frame(rbind(demand_2016,demand_2017,demand_2018)) %>% 
+  rename(Datetime= "Time (CET)")
+
+# split the datetime column to get just dates
+dtparts <- t(as.data.frame(strsplit(demand[,1],' ')))
+demand[1] <- dtparts[,1]
+
+# convert hourly data to monthly 
+demand <- demand %>% 
+  mutate(Datetime = floor_date(as.Date(Datetime, format= "%d.%m.%Y"), "month")) %>% 
+  group_by(Datetime) %>% 
+  summarise_at(1, sum, na.rm= TRUE)
+
+write.csv(demand,"Demand_FR.csv")
+
+```
+
+
+
+
