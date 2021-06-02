@@ -105,7 +105,7 @@ eu_generation <- rbind(eu_1618, eu_1920_mod)
 
 ```
 
-## Initial Calculation of Carbon Intensity
+### Initial Calculation of Carbon Intensity
 
 ```{r}
 
@@ -145,7 +145,7 @@ write_csv(monthly_generation, "eu_monthly_generation.csv")
 
 ```
 
-## Initial Calculation of Percentage of Green Energy
+### Initial Calculation of Percentage of Green Energy
 
 ```{r}
 
@@ -163,7 +163,7 @@ write_csv(green_energy_P, "eu_monthly_green_energy.csv")
 ```
 
 
-# Univariate Forecasting
+### Univariate Forecasting for Carbon Intensity
 
 ```{r fig.height=8, fig.width=12}
 
@@ -197,11 +197,11 @@ eu_carbon_intensity %>%
 
 GB_data <- eu_carbon_intensity %>% dplyr::select(1,8)
 # Split into training and test sets
-GB_data_train <- GB_data[1:52,] 
-GB_data_test <- GB_data[53:60,]
+GB_data_train <- GB_data[1:45,] 
+GB_data_test <- GB_data[46:60,]
 
-GB_ts <- ts(GB_data_train$GB, start = c(2016, 1), end = c(2020, 04), frequency = 12)
-GB_ts_test <- ts(GB_data_test[, 2], start = c(2020, 5), end = c(2020, 12), frequency = 12)
+GB_ts <- ts(GB_data_train[, 2], start = c(2016, 1), end = c(2019, 09), frequency = 12)
+GB_ts_test <- ts(GB_data_test[, 2], start = c(2019, 10), end = c(2020, 12), frequency = 12)
 
 # Decompose time series- multiplicative: Classical Decomposition
 GB_ts %>% decompose(type="multiplicative") %>%
@@ -211,7 +211,7 @@ GB_ts %>% decompose(type="multiplicative") %>%
 Acf(GB_ts, lag.max = 20)
 Pacf(GB_ts, lag.max = 20)
 
-#Evidence of autocorrelation at lags 1,2,3,10,11,12
+#Evidence of autocorrelation at lags 1,2,10,11,12
 
 # Checking whether the time-series is stationary or not using KPSS test
 GB_ts %>% ur.kpss() %>% summary()
@@ -240,23 +240,18 @@ GB_ts %>% nsdiffs()
 ```{r fig.height=8, fig.width=12}
 
 # Naive model
-model_naive <-snaive(GB_ts, h=8)
+model_naive <-snaive(GB_ts, h=15)
 summary(model_naive)
 
-for_naive <- forecast::forecast(model_naive, h = 8)
+for_naive <- forecast::forecast(model_naive, h = 15)
 df_naive = as.data.frame(for_naive)
 GB_data_test$naive = df_naive$`Point Forecast`
 # Check MAPE of seasonal naive model
-mape(GB_data_test$GB, GB_data_test$naive) # 12.60768
+mape(GB_data_test$GB, GB_data_test$naive) #17.13656
 
 checkresiduals(model_naive)
 
-#Ljung-Box test
 
-#data:  Residuals from Seasonal naive method
-#Q* = 20.434, df = 10, p-value = 0.0254
-
-#Model df: 0.   Total lags used: 10
 
 
 ```
@@ -267,28 +262,22 @@ checkresiduals(model_naive)
 
 hw_a_model <- hw(GB_ts,seasonal="additive")
 
-for_hwa <- forecast::forecast(hw_a_model, h = 8)
+for_hwa <- forecast::forecast(hw_a_model, h = 15)
 df_hwa = as.data.frame(for_hwa)
 GB_data_test$hwa = df_hwa$`Point Forecast`
 # Check MAPE of Holt-Winter's Additive Model
-mape(GB_data_test$GB, GB_data_test$hwa)
+mape(GB_data_test$GB, GB_data_test$hwa) # 15.90194
 
 checkresiduals(hw_a_model)
 
-#Ljung-Box test
-
-#data:  Residuals from Holt-Winters' additive method
-#Q* = 55.804, df = 3, p-value = 4.625e-12
-
-#Model df: 16.   Total lags used: 19
 
 hw_m_model <- hw(GB_ts,seasonal="multiplicative")
 
-for_hwm <- forecast::forecast(hw_m_model, h = 8)
+for_hwm <- forecast::forecast(hw_m_model, h = 15)
 df_hwm = as.data.frame(for_hwm)
 GB_data_test$hwm = df_hwm$`Point Forecast`
 # Check MAPE of Holt-Winter's Additive Model
-mape(GB_data_test$GB, GB_data_test$hwm)
+mape(GB_data_test$GB, GB_data_test$hwm) # 45.41247
 
 checkresiduals(hw_m_model)
 
@@ -302,22 +291,25 @@ model_arima <- Arima(GB_ts, order=c(5,1,1),
   seasonal=c(2,1,1), lambda = 0)
 summary(model_arima)
 
-for_arima <- forecast::forecast(model_arima, h = 8)
+for_arima <- forecast::forecast(model_arima, h = 15)
 df_arima = as.data.frame(for_arima)
 GB_data_test$arima = df_arima$`Point Forecast`
 mape(GB_data_test$GB, GB_data_test$arima)
 
-# 0rder=c(5,1,1), seasonal=c(2,1,2), lambda=0 - #MAPE 6.892643 # AICc=-45.5
-# 0rder=c(5,1,1), seasonal=c(2,1,1), lambda=0 - # MAPE 6.180747 # AICc=-48.72
+# 0rder=c(5,1,1), seasonal=c(2,1,1), lambda=0 - # MAPE 10.19661 # AICc=-28.32
 
 checkresiduals(model_arima)
 
-#autoplot(GB_ts) +
-#  autolayer(for_arima)+
-#  autolayer(GB_ts_test)
+# Generate forecasts uptill 2025
 
-#plot(GB_ts)
-#lines(fitted(model_arima), col="blue")
+# Define a new dataframe to store values of the forecasts
+values = seq(from = as.Date("2019-10-01"), to = as.Date("2025-12-01"), by = 'month')
+eu_forecasts <- as.data.frame(values) %>% 
+  rename(Datetime="values")
+
+for_GB <- forecast::forecast(model_arima, h = 75)
+df_for_GB = as.data.frame(for_GB)
+eu_forecasts$GB = df_for_GB$`Point Forecast`
 
 
 
@@ -338,7 +330,7 @@ BE_data %>%
 BE_data_train <- BE_data[1:45,] 
 BE_data_test <- BE_data[46:60,]
 
-BE_ts <- ts(BE_data$BE, start = c(2016, 1), end = c(2019, 09), frequency = 12)
+BE_ts <- ts(BE_data_train[, 2], start = c(2016, 1), end = c(2019, 09), frequency = 12)
 BE_ts_test <- ts(BE_data_test[, 2], start = c(2019, 10), end = c(2020, 12), frequency = 12)
 
 # Decompose time series- multiplicative: Classical Decomposition
@@ -407,8 +399,13 @@ checkresiduals(model_arima)
 
 #ARIMA(1,0,0)(1,1,0)[12] 
 
+# Add forecasts from Belgium to dataframe
+for_BE <- forecast::forecast(model_arima, h = 75)
+df_for_BE = as.data.frame(for_BE)
+eu_forecasts$BE = df_for_BE$`Point Forecast`
+
 autoplot(BE_ts) +
-  autolayer(for_arima)+
+  autolayer(for_BE)+
   autolayer(BE_ts_test)
 
 
@@ -428,7 +425,7 @@ NO_data %>%
 NO_data_train <- NO_data[1:45,] 
 NO_data_test <- NO_data[46:60,]
 
-NO_ts <- ts(NO_data$NO, start = c(2016, 1), end = c(2019, 09), frequency = 12)
+NO_ts <- ts(NO_data_train[, 2], start = c(2016, 1), end = c(2019, 09), frequency = 12)
 NO_ts_test <- ts(NO_data_test[, 2], start = c(2019, 10), end = c(2020, 12), frequency = 12)
 
 # Decompose time series- multiplicative: Classical Decomposition
@@ -470,7 +467,7 @@ checkresiduals(naive_mod)
 
 # Holt-Winters Seasonal Method (Multiplicative and Additive)
 
-hw_a_model <- hw(NO_ts,seasonal="additive")
+hw_a_model <- hw(NO_ts,seasonal="additive", h=75)
 
 for_hwa <- forecast::forecast(hw_a_model, h = 15)
 df_hwa = as.data.frame(for_hwa)
@@ -492,16 +489,25 @@ checkresiduals(hw_m_model)
 
 # Fitting an Arima model 
 
-model_arima <- Arima(NO_ts, order=c(4,1,0),
-  seasonal=c(1,0,0), lambda = 1)
+model_arima <- Arima(NO_ts, order=c(2,1,1),
+  seasonal=c(1,0,0), lambda = 0)
 summary(model_arima)
 
 for_arima <- forecast::forecast(model_arima, h = 15)
 df_arima = as.data.frame(for_arima)
 NO_data_test$arima = df_arima$`Point Forecast`
-mape(NO_data_test$NO, NO_data_test$arima) # 77.0192
+mape(NO_data_test$NO, NO_data_test$arima) # 71.3707
 
 checkresiduals(model_arima)
+
+# Add forecasts from Norway to dataframe
+for_NO <- forecast::forecast(model_arima, h = 75)
+df_for_NO = as.data.frame(for_NO)
+eu_forecasts$NO = df_for_NO$`Point Forecast`
+
+autoplot(NO_ts) +
+  autolayer(for_NO)+
+  autolayer(NO_ts_test)
 
 
 ```
@@ -521,7 +527,7 @@ FR_data %>%
 FR_data_train <- FR_data[1:45,] 
 FR_data_test <- FR_data[46:60,]
 
-FR_ts <- ts(FR_data$FR, start = c(2016, 1), end = c(2019, 09), frequency = 12)
+FR_ts <- ts(FR_data_train[, 2], start = c(2016, 1), end = c(2019, 09), frequency = 12)
 FR_ts_test <- ts(FR_data_test[, 2], start = c(2019, 10), end = c(2020, 12), frequency = 12)
 
 # Decompose time series- multiplicative: Classical Decomposition
@@ -601,7 +607,14 @@ checkresiduals(model_arima)
 
 # ARIMA(0,0,1)(1,1,0)[12] with drift # 33.25998
 
+# Add forecasts from France to dataframe
+for_FR <- forecast::forecast(model_arima, h = 75)
+df_for_FR = as.data.frame(for_FR)
+eu_forecasts$FR = df_for_FR$`Point Forecast`
 
+autoplot(FR_ts) +
+  autolayer(for_FR)+
+  autolayer(FR_ts_test)
 
 
 ```
@@ -611,7 +624,7 @@ checkresiduals(model_arima)
 NL_data <- eu_carbon_intensity %>% 
   dplyr::select(1,12)
 
-# Visualize the change in carbon intensities over time- France
+# Visualize the change in carbon intensities over time- Netherlands
 NL_data %>% 
   ggplot(aes(x=Datetime, y= NL))+
   geom_line()
@@ -620,7 +633,7 @@ NL_data %>%
 NL_data_train <- NL_data[1:45,] 
 NL_data_test <- NL_data[46:60,]
 
-NL_ts <- ts(NL_data$NL, start = c(2016, 1), end = c(2019, 09), frequency = 12)
+NL_ts <- ts(NL_data_train[, 2], start = c(2016, 1), end = c(2019, 09), frequency = 12)
 NL_ts_test <- ts(NL_data_test[, 2], start = c(2019, 10), end = c(2020, 12), frequency = 12)
 
 # Decompose time series- multiplicative: Classical Decomposition
@@ -679,15 +692,21 @@ model_arima <- Arima(NL_ts, order=c(1,1,0),
   seasonal=c(1,0,0), lambda = 0)
 summary(model_arima) 
 
-for_arima <- forecast::forecast(model_arima, h = 60)
+for_arima <- forecast::forecast(model_arima, h = 15)
 df_arima = as.data.frame(for_arima)
 NL_data_test$arima = df_arima$`Point Forecast`
-mape(NL_data_test$NL, NL_data_test$arima) 
+mape(NL_data_test$NL, NL_data_test$arima) # 8.393567
 
 checkresiduals(model_arima)
 
+
+# Add forecasts from Netherlands to dataframe
+for_NL <- forecast::forecast(model_arima, h = 75)
+df_for_NL = as.data.frame(for_NL)
+eu_forecasts$NL = df_for_NL$`Point Forecast`
+
 autoplot(NL_ts) +
-  autolayer(for_arima)+
+  autolayer(for_NL)+
   autolayer(NL_ts_test)
 
 
@@ -698,7 +717,7 @@ autoplot(NL_ts) +
 DK_data <- eu_carbon_intensity %>% 
   dplyr::select(1,4)
 
-# Visualize the change in carbon intensities over time- France
+# Visualize the change in carbon intensities over time- Denmark
 DK_data %>% 
   ggplot(aes(x=Datetime, y= DK))+
   geom_line()
@@ -707,7 +726,7 @@ DK_data %>%
 DK_data_train <- DK_data[1:45,] 
 DK_data_test <- DK_data[46:60,]
 
-DK_ts <- ts(DK_data$DK, start = c(2016, 1), end = c(2019, 09), frequency = 12)
+DK_ts <- ts(DK_data_train[, 2], start = c(2016, 1), end = c(2019, 09), frequency = 12)
 DK_ts_test <- ts(DK_data_test[, 2], start = c(2019, 10), end = c(2020, 12), frequency = 12)
 
 # Decompose time series- multiplicative: Classical Decomposition
@@ -740,7 +759,7 @@ checkresiduals(naive_mod)
 
 hw_a_model <- hw(DK_ts,seasonal="additive")
 
-for_hwa <- forecast::forecast(hw_a_model, h = 24)
+for_hwa <- forecast::forecast(hw_a_model, h = 15)
 df_hwa = as.data.frame(for_hwa)
 DK_data_test$hwa = df_hwa$`Point Forecast`
 # Check MAPE of Holt-Winter's Additive Model
@@ -764,21 +783,671 @@ model_arima <- Arima(DK_ts, order=c(2,1,1),
   seasonal=c(1,0,0), lambda = 0)
 summary(model_arima) 
 
-for_arima <- forecast::forecast(model_arima, h = 60)
+for_arima <- forecast::forecast(model_arima, h = 15)
 df_arima = as.data.frame(for_arima)
 DK_data_test$arima = df_arima$`Point Forecast`
 mape(DK_data_test$DK, DK_data_test$arima) # 26.05668
 
 checkresiduals(model_arima)
 
+# Add forecasts from Denmark to dataframe
+for_DK <- forecast::forecast(model_arima, h = 75)
+df_for_DK = as.data.frame(for_DK)
+eu_forecasts$DK = df_for_DK$`Point Forecast`
+
 autoplot(DK_ts) +
-  autolayer(for_arima)+
+  autolayer(for_DK)+
   autolayer(DK_ts_test)
+
+
+eu_forecasts <- eu_forecasts %>% 
+  mutate_at(2:7, function(x) ifelse(x<0,0,x)) %>% 
+  slice(16:75)
+
+write_csv(eu_forecasts,"eu_forecasts.csv")
 
 ```
 
+```{r fig.height=8, fig.width=12}
+
+IE_data <- eu_carbon_intensity %>% 
+  dplyr::select(1,9)
+
+# Visualize the change in carbon intensities over time- Ireland
+IE_data %>% 
+  ggplot(aes(x=Datetime, y= IE))+
+  geom_line()
+
+# Split into training and test sets
+IE_data_train <- IE_data[1:45,] 
+IE_data_test <- IE_data[46:60,]
+
+IE_ts <- ts(IE_data_train[, 2], start = c(2016, 1), end = c(2019, 09), frequency = 12)
+IE_ts_test <- ts(IE_data_test[, 2], start = c(2019, 10), end = c(2020, 12), frequency = 12)
+
+# Decompose time series- multiplicative: Classical Decomposition
+IE_ts %>% decompose(type="multiplicative") %>%
+  autoplot() 
+
+# Test for autocorrelation and partial autocorrelation
+Acf(IE_ts, lag.max = 20)
+Pacf(IE_ts, lag.max=20)
+# p -order 3?
+
+# Checking whether the time-series is stationary or not using KPSS test
+IE_ts %>% ur.kpss() %>% summary()
+# differencing will be needed 
+
+IE_ts %>% nsdiffs()
+# No seasonal differencing
+
+# Naive model
+model_naive <-snaive(IE_ts, h=15)
+
+for_naive <- forecast::forecast(model_naive, h = 15)
+df_naive = as.data.frame(for_naive)
+IE_data_test$naive = df_naive$`Point Forecast`
+mape(IE_data_test$IE, IE_data_test$naive) # 21.99956
+
+checkresiduals(naive_mod)
+
+# Holt-Winters Seasonal Method (Multiplicative and Additive)
+
+hw_a_model <- hw(IE_ts,seasonal="additive")
+
+for_hwa <- forecast::forecast(hw_a_model, h = 15)
+df_hwa = as.data.frame(for_hwa)
+IE_data_test$hwa = df_hwa$`Point Forecast`
+# Check MAPE of Holt-Winter's Additive Model
+mape(IE_data_test$IE, IE_data_test$hwa) # 11.24222
+
+checkresiduals(hw_a_model)
+
+hw_m_model <- hw(IE_ts,seasonal="multiplicative")
+
+for_hwm <- forecast::forecast(hw_m_model, h = 15)
+df_hwm = as.data.frame(for_hwm)
+IE_data_test$hwm = df_hwm$`Point Forecast`
+# Check MAPE of Holt-Winter's Multiplicative Model
+mape(IE_data_test$IE, IE_data_test$hwm)  # 11.70813
+
+checkresiduals(hw_m_model)
+
+# Fitting an Arima model 
+
+model_arima <- Arima(IE_ts, order=c(3,1,2),
+  seasonal=c(0,1,1), lambda = 0.8)
+summary(model_arima) 
+
+for_arima <- forecast::forecast(model_arima, h = 15)
+df_arima = as.data.frame(for_arima)
+IE_data_test$arima = df_arima$`Point Forecast`
+mape(IE_data_test$IE, IE_data_test$arima) # 10.92296
+
+checkresiduals(model_arima)
+
+# Add forecasts from Ireland to dataframe
+for_IE <- forecast::forecast(model_arima, h = 75)
+df_for_IE = as.data.frame(for_IE)
+eu_forecasts$IE = df_for_IE$`Point Forecast`
+
+autoplot(IE_ts) +
+  autolayer(for_IE)+
+  autolayer(IE_ts_test)
+
+
+```
+
+### Univariate Forecasting of Green Energy Percentage
+
+```{r fig.height=8, fig.width=12}
+
+eu_green_percentage <- read_excel("Total_Renewable_Energy_2016-2020.xlsx", sheet=7)
+
+GB_res_data <- eu_green_percentage %>% 
+  dplyr::select(1,8)
+
+# Visualize the change in green energy percentage over time- GB
+GB_res_data %>% 
+  ggplot(aes(x=Datetime, y= GB))+
+  geom_line()
+
+# Split into training and test sets
+GB_res_data_train <- GB_res_data[1:45,] 
+GB_res_data_test <- GB_res_data[46:60,]
+
+GB_res_ts <- ts(GB_res_data_train[,2], start = c(2016, 1), end = c(2019, 09), frequency = 12)
+GB_res_ts_test <- ts(GB_res_data_test[, 2], start = c(2019, 10), end = c(2020, 12), frequency = 12)
+
+# Decompose time series- multiplicative: Classical Decomposition
+GB_res_ts %>% decompose(type="multiplicative") %>%
+  autoplot() 
+
+# Test for autocorrelation and partial autocorrelation
+Acf(GB_res_ts, lag.max = 20)
+Pacf(GB_res_ts, lag.max=20)
+
+# Checking whether the time-series is stationary or not using KPSS test
+GB_res_ts %>% ur.kpss() %>% summary()
+# No differencing needed
+GB_res_ts %>% nsdiffs()
+# No seasonal differencing 
+
+# Naive model
+model_naive <-snaive(GB_res_ts, h=15)
+
+for_naive <- forecast::forecast(model_naive, h = 15)
+df_naive = as.data.frame(for_naive)
+GB_res_data_test$naive = df_naive$`Point Forecast`
+mape(GB_res_data_test$GB, GB_res_data_test$naive) #  12.01992
+
+checkresiduals(naive_mod)
+
+# Holt-Winters Seasonal Method (Multiplicative and Additive)
+
+hw_a_model <- hw(GB_res_ts,seasonal="additive")
+
+for_hwa <- forecast::forecast(hw_a_model, h = 15)
+df_hwa = as.data.frame(for_hwa)
+GB_res_data_test$hwa = df_hwa$`Point Forecast`
+# Check MAPE of Holt-Winter's Additive Model
+mape(GB_res_data_test$GB, GB_res_data_test$hwa) # 23.18201
+
+checkresiduals(hw_a_model)
+
+hw_m_model <- hw(GB_res_ts,seasonal="multiplicative")
+
+for_hwm <- forecast::forecast(hw_m_model, h = 15)
+df_hwm = as.data.frame(for_hwm)
+GB_res_data_test$hwm = df_hwm$`Point Forecast`
+# Check MAPE of Holt-Winter's Multiplicative Model
+mape(GB_res_data_test$GB, GB_res_data_test$hwm) # 17.49423
+
+checkresiduals(hw_m_model)
+
+# Fitting an Arima model 
+
+model_arima <- Arima(GB_res_ts, order=c(2,0,1),
+  seasonal=c(1,1,0), lambda = 0)
+summary(model_arima) 
+
+for_arima <- forecast::forecast(model_arima, h = 15)
+df_arima = as.data.frame(for_arima)
+GB_res_data_test$arima = df_arima$`Point Forecast`
+mape(GB_res_data_test$GB, GB_res_data_test$arima) # 9.803372
+
+checkresiduals(model_arima)
+
+# Define a new dataframe to store values of the forecasts
+values = seq(from = as.Date("2019-10-01"), to = as.Date("2025-12-01"), by = 'month')
+eu_res_forecasts <- as.data.frame(values) %>% 
+  rename(Datetime="values")
+
+for_GB <- forecast::forecast(model_arima, h = 75)
+df_for_GB = as.data.frame(for_GB)
+eu_res_forecasts$GB = df_for_GB$`Point Forecast`
+
+autoplot(GB_res_ts) +
+  autolayer(for_GB)+
+  autolayer(GB_res_ts_test)
+
+```
+
+```{r fig.height=8, fig.width=12}
+
+BE_res_data <- eu_green_percentage %>% 
+  dplyr::select(1,15)
+
+# Visualize the change in green energy percentage over time-Belgium
+BE_res_data %>% 
+  ggplot(aes(x=Datetime, y= BE))+
+  geom_line()
+
+# Split into training and test sets
+BE_res_data_train <- BE_res_data[1:45,] 
+BE_res_data_test <- BE_res_data[46:60,]
+
+BE_res_ts <- ts(BE_res_data_train[,2], start = c(2016, 1), end = c(2019, 09), frequency = 12)
+BE_res_ts_test <- ts(BE_res_data_test[, 2], start = c(2019, 10), end = c(2020, 12), frequency = 12)
+
+# Decompose time series- multiplicative: Classical Decomposition
+BE_res_ts %>% decompose(type="multiplicative") %>%
+  autoplot() 
+
+
+# Test for autocorrelation and partial autocorrelation
+Acf(BE_res_ts, lag.max = 20)
+Pacf(BE_res_ts, lag.max=20)
+
+# Checking whether the time-series is stationary or not using KPSS test
+BE_res_ts %>% ur.kpss() %>% summary()
+
+BE_res_ts %>% nsdiffs()
+
+
+# Naive model
+model_naive <-snaive(BE_res_ts, h=15)
+
+for_naive <- forecast::forecast(model_naive, h = 15)
+df_naive = as.data.frame(for_naive)
+BE_res_data_test$naive = df_naive$`Point Forecast`
+mape(BE_res_data_test$BE, BE_res_data_test$naive) 
+checkresiduals(naive_mod) # 24.05762
+
+# Holt-Winters Seasonal Method (Multiplicative and Additive)
+
+hw_a_model <- hw(BE_res_ts,seasonal="additive")
+
+for_hwa <- forecast::forecast(hw_a_model, h = 15)
+df_hwa = as.data.frame(for_hwa)
+BE_res_data_test$hwa = df_hwa$`Point Forecast`
+# Check MAPE of Holt-Winter's Additive Model
+mape(BE_res_data_test$BE, BE_res_data_test$hwa) # 12.30619
+
+checkresiduals(hw_a_model)
+
+hw_m_model <- hw(BE_res_ts,seasonal="multiplicative")
+
+for_hwm <- forecast::forecast(hw_m_model, h = 15)
+df_hwm = as.data.frame(for_hwm)
+BE_res_data_test$hwm = df_hwm$`Point Forecast`
+# Check MAPE of Holt-Winter's Multiplicative Model
+mape(BE_res_data_test$BE, BE_res_data_test$hwm) # 21.10454
+
+checkresiduals(hw_m_model)
+
+# Fitting an Arima model 
+
+model_arima <- Arima(BE_res_ts, order=c(1,0,0),
+  seasonal=c(1,1,0))
+summary(model_arima) 
+
+for_arima <- forecast::forecast(model_arima, h = 15)
+df_arima = as.data.frame(for_arima)
+BE_res_data_test$arima = df_arima$`Point Forecast`
+mape(BE_res_data_test$BE, BE_res_data_test$arima) 
+
+checkresiduals(model_arima)
+
+# Add forecasts from BE to dataframe
+for_BE <- forecast::forecast(model_arima, h = 75)
+df_for_BE = as.data.frame(for_BE)
+eu_res_forecasts$BE = df_for_BE$`Point Forecast`
+
+autoplot(BE_res_ts) +
+  autolayer(for_BE)+
+  autolayer(BE_res_ts_test)
+
+eu_res_forecasts %>% 
+  mutate(Datetime= floor_date(Datetime, "year")) %>% 
+  group_by(Datetime) %>% 
+  summarise_at(1:3, mean)
+
+
+```
+
+```{r fig.height=8, fig.width=12}
+
+
+NO_res_data <- eu_green_percentage %>% 
+  dplyr::select(1,13)
+
+# Visualize the change in green energy percentage over time-Norway
+NO_res_data %>% 
+  ggplot(aes(x=Datetime, y= NO))+
+  geom_line()
+
+# Split into training and test sets
+NO_res_data_train <- NO_res_data[1:45,] 
+NO_res_data_test <- NO_res_data[46:60,]
+
+NO_res_ts <- ts(NO_res_data_train[,2], start = c(2016, 1), end = c(2019, 09), frequency = 12)
+NO_res_ts_test <- ts(NO_res_data_test[, 2], start = c(2019, 10), end = c(2020, 12), frequency = 12)
+
+# Decompose time series- multiplicative: Classical Decomposition
+NO_res_ts %>% decompose(type="multiplicative") %>%
+  autoplot() 
+
+# Test for autocorrelation and partial autocorrelation
+Acf(NO_res_ts, lag.max = 20)
+Pacf(NO_res_ts, lag.max=20)
+
+# Checking whether the time-series is stationary or not using KPSS test
+NO_res_ts %>% ur.kpss() %>% summary()
+
+NO_res_ts %>% nsdiffs()
+
+
+# Naive model
+model_naive <-snaive(NO_res_ts, h=15)
+
+for_naive <- forecast::forecast(model_naive, h = 15)
+df_naive = as.data.frame(for_naive)
+NO_res_data_test$naive = df_naive$`Point Forecast`
+mape(NO_res_data_test$NO, NO_res_data_test$naive) # 3.15175
+checkresiduals(naive_mod) 
+
+# Holt-Winters Seasonal Method (Multiplicative and Additive)
+
+hw_a_model <- hw(NO_res_ts,seasonal="additive")
+
+for_hwa <- forecast::forecast(hw_a_model, h = 15)
+df_hwa = as.data.frame(for_hwa)
+NO_res_data_test$hwa = df_hwa$`Point Forecast`
+# Check MAPE of Holt-Winter's Additive Model
+mape(NO_res_data_test$NO, NO_res_data_test$hwa) # 2.646567
+
+checkresiduals(hw_a_model)
+
+hw_m_model <- hw(NO_res_ts,seasonal="multiplicative")
+
+for_hwm <- forecast::forecast(hw_m_model, h = 15)
+df_hwm = as.data.frame(for_hwm)
+NO_res_data_test$hwm = df_hwm$`Point Forecast`
+# Check MAPE of Holt-Winter's Multiplicative Model
+mape(NO_res_data_test$NO, NO_res_data_test$hwm) # 2.532906
+
+checkresiduals(hw_m_model)
+
+# Fitting an Arima model 
+
+model_arima <- Arima(NO_res_ts, order=c(1,1,1),
+  seasonal=c(0,1,1))
+summary(model_arima) 
+
+for_arima <- forecast::forecast(model_arima, h = 15)
+df_arima = as.data.frame(for_arima)
+NO_res_data_test$arima = df_arima$`Point Forecast`
+mape(NO_res_data_test$NO, NO_res_data_test$arima) # 2.510672
+
+checkresiduals(model_arima)
+
+
+# Add forecasts from NO to dataframe
+for_NO <- forecast::forecast(model_arima, h = 75)
+df_for_NO = as.data.frame(for_NO)
+eu_res_forecasts$NO = df_for_NO$`Point Forecast`
+
+autoplot(NO_res_ts) +
+  autolayer(for_NO)+
+  autolayer(NO_res_ts_test)
+
+eu_res_forecasts %>% 
+  mutate(Datetime= floor_date(Datetime, "year")) %>% 
+  group_by(Datetime) %>% 
+  summarise_at(1:5, mean)
+
+
+```
+
+```{r fig.height=8, fig.width=12}
+
+NL_res_data <- eu_green_percentage %>% 
+  dplyr::select(1,12)
+
+# Visualize the change in green energy percentage over time-Netherlands
+NL_res_data %>% 
+  ggplot(aes(x=Datetime, y= NL))+
+  geom_line()
+
+# Split into training and test sets
+NL_res_data_train <- NL_res_data[1:45,] 
+NL_res_data_test <- NL_res_data[46:60,]
+
+NL_res_ts <- ts(NL_res_data_train[,2], start = c(2016, 1), end = c(2019, 09), frequency = 12)
+NL_res_ts_test <- ts(NL_res_data_test[, 2], start = c(2019, 10), end = c(2020, 12), frequency = 12)
+
+# Decompose time series- multiplicative: Classical Decomposition
+NL_res_ts %>% decompose(type="multiplicative") %>%
+  autoplot() 
+
+# Test for autocorrelation and partial autocorrelation
+Acf(NL_res_ts, lag.max = 20)
+Pacf(NL_res_ts, lag.max=20)
+
+# Checking whether the time-series is stationary or not using KPSS test
+NL_res_ts %>% ur.kpss() %>% summary()
+NL_res_ts %>% nsdiffs()
+
+# Naive model
+model_naive <-snaive(NL_res_ts, h=15)
+
+for_naive <- forecast::forecast(model_naive, h = 15)
+df_naive = as.data.frame(for_naive)
+NL_res_data_test$naive = df_naive$`Point Forecast`
+mape(NL_res_data_test$NL, NL_res_data_test$naive) # 28.65688
+checkresiduals(naive_mod) 
+
+# Holt-Winters Seasonal Method (Multiplicative and Additive)
+
+hw_a_model <- hw(NL_res_ts,seasonal="additive")
+
+for_hwa <- forecast::forecast(hw_a_model, h = 15)
+df_hwa = as.data.frame(for_hwa)
+NL_res_data_test$hwa = df_hwa$`Point Forecast`
+# Check MAPE of Holt-Winter's Additive Model
+mape(NL_res_data_test$NL, NL_res_data_test$hwa) # 15.00575
+
+checkresiduals(hw_a_model)
+
+hw_m_model <- hw(NL_res_ts,seasonal="multiplicative")
+
+for_hwm <- forecast::forecast(hw_m_model, h = 15)
+df_hwm = as.data.frame(for_hwm)
+NL_res_data_test$hwm = df_hwm$`Point Forecast`
+# Check MAPE of Holt-Winter's Multiplicative Model
+mape(NL_res_data_test$NL, NL_res_data_test$hwm) # 66.18439
+
+checkresiduals(hw_m_model)
+
+# Fitting an Arima model 
+
+model_arima <- Arima(NL_res_ts, order=c(2,1,2),
+  seasonal=c(0,0,1))
+summary(model_arima) 
+
+for_arima <- forecast::forecast(model_arima, h = 15)
+df_arima = as.data.frame(for_arima)
+NL_res_data_test$arima = df_arima$`Point Forecast`
+mape(NL_res_data_test$NL, NL_res_data_test$arima) 
+
+checkresiduals(model_arima)
+
+# Add forecasts from NL to dataframe
+for_NL <- forecast::forecast(model_arima, h = 75)
+df_for_NL = as.data.frame(for_NL)
+eu_res_forecasts$NL = df_for_NL$`Point Forecast`
+
+autoplot(NL_res_ts) +
+  autolayer(for_NL)+
+  autolayer(NL_res_ts_test)
+
+eu_res_forecasts %>% 
+  mutate(Datetime= floor_date(Datetime, "year")) %>% 
+  group_by(Datetime) %>% 
+  summarise_at(1:5, mean)
+
+
+```
+```{r fig.height=8, fig.width=12}
+
+FR_res_data <- eu_green_percentage %>% 
+  dplyr::select(1,7)
+
+# Visualize the change in green energy percentage over time- France
+FR_res_data %>% 
+  ggplot(aes(x=Datetime, y= FR))+
+  geom_line()
+
+# Split into training and test sets
+FR_res_data_train <- FR_res_data[1:45,] 
+FR_res_data_test <- FR_res_data[46:60,]
+
+FR_res_ts <- ts(FR_res_data_train[,2], start = c(2016, 1), end = c(2019, 09), frequency = 12)
+FR_res_ts_test <- ts(FR_res_data_test[, 2], start = c(2019, 10), end = c(2020, 12), frequency = 12)
+
+# Decompose time series- multiplicative: Classical Decomposition
+FR_res_ts %>% decompose(type="multiplicative") %>%
+  autoplot() 
+
+# Test for autocorrelation and partial autocorrelation
+Acf(FR_res_ts, lag.max = 20)
+Pacf(FR_res_ts, lag.max=20)
+
+# Checking whether the time-series is stationary or not using KPSS test
+FR_res_ts %>% ur.kpss() %>% summary()
+FR_res_ts %>% nsdiffs()
+
+# Naive model
+model_naive <-snaive(FR_res_ts, h=15)
+
+for_naive <- forecast::forecast(model_naive, h = 15)
+df_naive = as.data.frame(for_naive)
+FR_res_data_test$naive = df_naive$`Point Forecast`
+mape(FR_res_data_test$FR, FR_res_data_test$naive) # 1.803188
+checkresiduals(naive_mod) 
+
+# Holt-Winters Seasonal Method (Multiplicative and Additive)
+
+hw_a_model <- hw(FR_res_ts,seasonal="additive")
+
+for_hwa <- forecast::forecast(hw_a_model, h = 15)
+df_hwa = as.data.frame(for_hwa)
+FR_res_data_test$hwa = df_hwa$`Point Forecast`
+# Check MAPE of Holt-Winter's Additive Model
+mape(FR_res_data_test$FR, FR_res_data_test$hwa) #  2.498804
+
+checkresiduals(hw_a_model)
+
+hw_m_model <- hw(FR_res_ts,seasonal="multiplicative")
+
+for_hwm <- forecast::forecast(hw_m_model, h = 15)
+df_hwm = as.data.frame(for_hwm)
+FR_res_data_test$hwm = df_hwm$`Point Forecast`
+# Check MAPE of Holt-Winter's Multiplicative Model
+mape(FR_res_data_test$FR, FR_res_data_test$hwm) # 2.51212
+
+checkresiduals(hw_m_model)
+
+# Fitting an Arima model 
+
+model_arima <- auto.arima(FR_res_ts, lambda = 0)
+summary(model_arima) 
+
+for_arima <- forecast::forecast(model_arima, h = 15)
+df_arima = as.data.frame(for_arima)
+FR_res_data_test$arima = df_arima$`Point Forecast`
+mape(FR_res_data_test$FR, FR_res_data_test$arima) # 2.565965
+
+checkresiduals(model_arima)
+
+# Add forecasts from FR to dataframe
+for_FR <- forecast::forecast(model_arima, h = 75)
+df_for_FR = as.data.frame(for_FR)
+eu_res_forecasts$FR = df_for_FR$`Point Forecast`
+
+autoplot(FR_res_ts) +
+  autolayer(for_FR)+
+  autolayer(FR_res_ts_test)
+
+eu_res_forecasts %>% 
+  mutate(Datetime= floor_date(Datetime, "year")) %>% 
+  group_by(Datetime) %>% 
+  summarise_at(1:5, mean)
+
+```
+
+```{r}
+
+
+IE_res_data <- eu_green_percentage %>% 
+  dplyr::select(1,7)
+
+# Visualize the change in green energy percentage over time-Ireland
+IE_res_data %>% 
+  ggplot(aes(x=Datetime, y= IE))+
+  geom_line()
+
+# Split into training and test sets
+IE_res_data_train <- IE_res_data[1:45,] 
+IE_res_data_test <- IE_res_data[46:60,]
+
+IE_res_ts <- ts(IE_res_data_train[,2], start = c(2016, 1), end = c(2019, 09), frequency = 12)
+IE_res_ts_test <- ts(IE_res_data_test[, 2], start = c(2019, 10), end = c(2020, 12), frequency = 12)
+
+# Decompose time series- multiplicative: Classical Decomposition
+IE_res_ts %>% decompose(type="multiplicative") %>%
+  autoplot() 
+
+# Test for autocorrelation and partial autocorrelation
+Acf(IE_res_ts, lag.max = 20)
+Pacf(IE_res_ts, lag.max=20)
+
+# Checking whether the time-series is stationary or not using KPSS test
+IE_res_ts %>% ur.kpss() %>% summary()
+IE_res_ts %>% nsdiffs()
+
+# Naive model
+model_naive <-snaive(IE_res_ts, h=15)
+
+for_naive <- forecast::forecast(model_naive, h = 15)
+df_naive = as.data.frame(for_naive)
+IE_res_data_test$naive = df_naive$`Point Forecast`
+mape(IE_res_data_test$IE, IE_res_data_test$naive) 
+checkresiduals(naive_mod) 
+
+# Holt-Winters Seasonal Method (Multiplicative and Additive)
+
+hw_a_model <- hw(IE_res_ts,seasonal="additive")
+
+for_hwa <- forecast::forecast(hw_a_model, h = 15)
+df_hwa = as.data.frame(for_hwa)
+IE_res_data_test$hwa = df_hwa$`Point Forecast`
+# Check MAPE of Holt-Winter's Additive Model
+mape(IE_res_data_test$IE, IE_res_data_test$hwa) 
+checkresiduals(hw_a_model)
+
+hw_m_model <- hw(IE_res_ts,seasonal="multiplicative")
+
+for_hwm <- forecast::forecast(hw_m_model, h = 15)
+df_hwm = as.data.frame(for_hwm)
+IE_res_data_test$hwm = df_hwm$`Point Forecast`
+# Check MAPE of Holt-Winter's Multiplicative Model
+mape(IE_res_data_test$IE, IE_res_data_test$hwm) 
+
+checkresiduals(hw_m_model)
+
+# Fitting an Arima model 
+
+model_arima <- auto.arima(IE_res_ts, lambda = 0)
+summary(model_arima) 
+
+for_arima <- forecast::forecast(model_arima, h = 15)
+df_arima = as.data.frame(for_arima)
+IE_res_data_test$arima = df_arima$`Point Forecast`
+mape(IE_res_data_test$IE, IE_res_data_test$arima) 
+
+checkresiduals(model_arima)
+
+# Add forecasts from IE to dataframe
+for_IE <- forecast::forecast(model_arima, h = 75)
+df_for_IE = as.data.frame(for_IE)
+eu_res_forecasts$IE = df_for_IE$`Point Forecast`
+
+autoplot(IE_res_ts) +
+  autolayer(for_IE)+
+  autolayer(IE_res_ts_test)
+
+eu_res_forecasts %>% 
+  mutate(Datetime= floor_date(Datetime, "year")) %>% 
+  group_by(Datetime) %>% 
+  summarise_at(1:5, mean)
 
 
 
 
+
+
+
+```
 
