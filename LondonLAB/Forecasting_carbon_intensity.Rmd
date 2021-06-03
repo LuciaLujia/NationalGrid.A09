@@ -13,14 +13,9 @@ library(tidyverse)
 library(ggplot2)
 library(zoo) # For computing moving averages 
 library(GGally)
-library(caret) 
 library(lubridate)
-library(rsample)
 library(tseries)
 library(forecast)
-library(vars)
-library(car)
-library(HDeconometrics)
 library(scales)
 library(TTR)
 library(fpp2)
@@ -247,12 +242,9 @@ for_naive <- forecast::forecast(model_naive, h = 15)
 df_naive = as.data.frame(for_naive)
 GB_data_test$naive = df_naive$`Point Forecast`
 # Check MAPE of seasonal naive model
-mape(GB_data_test$GB, GB_data_test$naive) #17.13656
+mape(GB_data_test$GB, GB_data_test$naive) #17.13679
 
 checkresiduals(model_naive)
-
-
-
 
 ```
 
@@ -730,6 +722,11 @@ eu_forecasts <- eu_forecasts %>%
 
 write_csv(eu_forecasts,"eu_forecasts.csv")
 
+eu_forecasts %>% 
+  mutate(Datetime= floor_date(Datetime, "year")) %>% 
+  group_by(Datetime) %>% 
+  summarise_at(1:7, mean)
+
 
 ```
 
@@ -737,7 +734,7 @@ write_csv(eu_forecasts,"eu_forecasts.csv")
 
 ```{r fig.height=8, fig.width=12}
 
-eu_green_percentage <- read_excel("Total_Renewable_Energy_2016-2020.xlsx", sheet=7)
+eu_green_percentage <- read_excel("Total_Zero_Carbon_2016-2020.xlsx", sheet=5)
 
 GB_res_data <- eu_green_percentage %>% 
   dplyr::select(1,8)
@@ -748,11 +745,11 @@ GB_res_data %>%
   geom_line()
 
 # Split into training and test sets
-GB_res_data_train <- GB_res_data[1:45,] 
-GB_res_data_test <- GB_res_data[46:60,]
+GB_res_data_train <- GB_res_data[1:52,] 
+GB_res_data_test <- GB_res_data[53:60,]
 
-GB_res_ts <- ts(GB_res_data_train[,2], start = c(2016, 1), end = c(2019, 09), frequency = 12)
-GB_res_ts_test <- ts(GB_res_data_test[, 2], start = c(2019, 10), end = c(2020, 12), frequency = 12)
+GB_res_ts <- ts(GB_res_data_train[,2], start = c(2016, 1), end = c(2020, 04), frequency = 12)
+GB_res_ts_test <- ts(GB_res_data_test[, 2], start = c(2020, 05), end = c(2020, 12), frequency = 12)
 
 # Decompose time series- multiplicative: Classical Decomposition
 GB_res_ts %>% decompose(type="multiplicative") %>%
@@ -764,17 +761,17 @@ Pacf(GB_res_ts, lag.max=20)
 
 # Checking whether the time-series is stationary or not using KPSS test
 GB_res_ts %>% ur.kpss() %>% summary()
-# No differencing needed
+#differencing needed
 GB_res_ts %>% nsdiffs()
 # No seasonal differencing 
 
 # Naive model
-model_naive <-snaive(GB_res_ts, h=15)
+model_naive <-snaive(GB_res_ts, h=8)
 
-for_naive <- forecast::forecast(model_naive, h = 15)
+for_naive <- forecast::forecast(model_naive, h = 8)
 df_naive = as.data.frame(for_naive)
 GB_res_data_test$naive = df_naive$`Point Forecast`
-mape(GB_res_data_test$GB, GB_res_data_test$naive) #  12.01992
+mape(GB_res_data_test$GB, GB_res_data_test$naive) # 8.560574
 
 checkresiduals(naive_mod)
 
@@ -784,20 +781,21 @@ model_arima <- Arima(GB_res_ts, order=c(2,0,1),
   seasonal=c(1,1,0), lambda = 0)
 summary(model_arima) 
 
-for_arima <- forecast::forecast(model_arima, h = 15)
+for_arima <- forecast::forecast(model_arima, h = 8)
 df_arima = as.data.frame(for_arima)
 GB_res_data_test$arima = df_arima$`Point Forecast`
-mape(GB_res_data_test$GB, GB_res_data_test$arima) # 9.803372
+mape(GB_res_data_test$GB, GB_res_data_test$arima) # 6.452421
 
 checkresiduals(model_arima)
 
 # Define a new dataframe to store values of the forecasts
-values = seq(from = as.Date("2019-10-01"), to = as.Date("2025-12-01"), by = 'month')
+values = seq(from = as.Date("2021-01-01"), to = as.Date("2025-12-01"), by = 'month')
 eu_res_forecasts <- as.data.frame(values) %>% 
   rename(Datetime="values")
 
-for_GB <- forecast::forecast(model_arima, h = 75)
-df_for_GB = as.data.frame(for_GB)
+for_GB <- forecast::forecast(model_arima, h = 68)
+df_for_GB = as.data.frame(for_GB) %>% 
+  slice(9:68)
 eu_res_forecasts$GB = df_for_GB$`Point Forecast`
 
 autoplot(GB_res_ts) +
@@ -845,7 +843,8 @@ for_naive <- forecast::forecast(model_naive, h = 15)
 df_naive = as.data.frame(for_naive)
 BE_res_data_test$naive = df_naive$`Point Forecast`
 mape(BE_res_data_test$BE, BE_res_data_test$naive) 
-checkresiduals(naive_mod) # 24.05762
+checkresiduals(naive_mod) # 23.40749
+
 
 # Fitting an Arima model 
 
@@ -856,18 +855,20 @@ summary(model_arima)
 for_arima <- forecast::forecast(model_arima, h = 15)
 df_arima = as.data.frame(for_arima)
 BE_res_data_test$arima = df_arima$`Point Forecast`
-mape(BE_res_data_test$BE, BE_res_data_test$arima) 
+mape(BE_res_data_test$BE, BE_res_data_test$arima) # 16.77493
 
 checkresiduals(model_arima)
 
 # Add forecasts from BE to dataframe
 for_BE <- forecast::forecast(model_arima, h = 75)
-df_for_BE = as.data.frame(for_BE)
+df_for_BE = as.data.frame(for_BE) %>% 
+  slice(16:75)
 eu_res_forecasts$BE = df_for_BE$`Point Forecast`
 
 autoplot(BE_res_ts) +
   autolayer(for_BE)+
   autolayer(BE_res_ts_test)
+
 
 
 ```
@@ -884,11 +885,11 @@ NO_res_data %>%
   geom_line()
 
 # Split into training and test sets
-NO_res_data_train <- NO_res_data[1:45,] 
-NO_res_data_test <- NO_res_data[46:60,]
+NO_res_data_train <- NO_res_data[1:52,] 
+NO_res_data_test <- NO_res_data[53:60,]
 
-NO_res_ts <- ts(NO_res_data_train[,2], start = c(2016, 1), end = c(2019, 09), frequency = 12)
-NO_res_ts_test <- ts(NO_res_data_test[, 2], start = c(2019, 10), end = c(2020, 12), frequency = 12)
+NO_res_ts <- ts(NO_res_data_train[,2], start = c(2016, 1), end = c(2020, 04), frequency = 12)
+NO_res_ts_test <- ts(NO_res_data_test[, 2], start = c(2020, 05), end = c(2020, 12), frequency = 12)
 
 # Decompose time series- multiplicative: Classical Decomposition
 NO_res_ts %>% decompose(type="multiplicative") %>%
@@ -905,41 +906,35 @@ NO_res_ts %>% nsdiffs()
 
 
 # Naive model
-model_naive <-snaive(NO_res_ts, h=15)
+model_naive <-snaive(NO_res_ts, h=8)
 
-for_naive <- forecast::forecast(model_naive, h = 15)
+for_naive <- forecast::forecast(model_naive, h = 8)
 df_naive = as.data.frame(for_naive)
 NO_res_data_test$naive = df_naive$`Point Forecast`
-mape(NO_res_data_test$NO, NO_res_data_test$naive) # 3.15175
+mape(NO_res_data_test$NO, NO_res_data_test$naive) # 1.049851
 checkresiduals(naive_mod) 
 
 # Fitting an Arima model 
 
-model_arima <- Arima(NO_res_ts, order=c(1,1,1),
-  seasonal=c(0,1,1))
+model_arima <- Arima(NO_res_ts, order=c(3,1,1),
+  seasonal=c(1,1,1), lambda=0)
 summary(model_arima) 
 
-for_arima <- forecast::forecast(model_arima, h = 15)
+for_arima <- forecast::forecast(model_arima, h = 8)
 df_arima = as.data.frame(for_arima)
 NO_res_data_test$arima = df_arima$`Point Forecast`
-mape(NO_res_data_test$NO, NO_res_data_test$arima) # 2.510672
-
+mape(NO_res_data_test$NO, NO_res_data_test$arima)  # 0.6551322
 checkresiduals(model_arima)
 
-
 # Add forecasts from NO to dataframe
-for_NO <- forecast::forecast(model_arima, h = 75)
-df_for_NO = as.data.frame(for_NO)
+for_NO <- forecast::forecast(model_arima, h = 68)
+df_for_NO = as.data.frame(for_NO)%>% 
+  slice(9:68)
 eu_res_forecasts$NO = df_for_NO$`Point Forecast`
 
 autoplot(NO_res_ts) +
   autolayer(for_NO)+
   autolayer(NO_res_ts_test)
-
-eu_res_forecasts %>% 
-  mutate(Datetime= floor_date(Datetime, "year")) %>% 
-  group_by(Datetime) %>% 
-  summarise_at(1:5, mean)
 
 
 ```
@@ -979,25 +974,27 @@ model_naive <-snaive(NL_res_ts, h=15)
 for_naive <- forecast::forecast(model_naive, h = 15)
 df_naive = as.data.frame(for_naive)
 NL_res_data_test$naive = df_naive$`Point Forecast`
-mape(NL_res_data_test$NL, NL_res_data_test$naive) # 28.65688
+mape(NL_res_data_test$NL, NL_res_data_test$naive) #  25.89179
+
 checkresiduals(naive_mod) 
 
 # Fitting an Arima model 
 
 model_arima <- Arima(NL_res_ts, order=c(2,1,2),
-  seasonal=c(0,0,1))
+  seasonal=c(0,0,1), lambda=0)
 summary(model_arima) 
 
 for_arima <- forecast::forecast(model_arima, h = 15)
 df_arima = as.data.frame(for_arima)
 NL_res_data_test$arima = df_arima$`Point Forecast`
-mape(NL_res_data_test$NL, NL_res_data_test$arima) 
+mape(NL_res_data_test$NL, NL_res_data_test$arima) # 17.93058
 
 checkresiduals(model_arima)
 
 # Add forecasts from NL to dataframe
 for_NL <- forecast::forecast(model_arima, h = 75)
-df_for_NL = as.data.frame(for_NL)
+df_for_NL = as.data.frame(for_NL) %>% 
+  slice(16:75)
 eu_res_forecasts$NL = df_for_NL$`Point Forecast`
 
 autoplot(NL_res_ts) +
@@ -1041,7 +1038,7 @@ model_naive <-snaive(FR_res_ts, h=15)
 for_naive <- forecast::forecast(model_naive, h = 15)
 df_naive = as.data.frame(for_naive)
 FR_res_data_test$naive = df_naive$`Point Forecast`
-mape(FR_res_data_test$FR, FR_res_data_test$naive) # 1.803188
+mape(FR_res_data_test$FR, FR_res_data_test$naive) #2.032265
 checkresiduals(naive_mod) 
 
 # Fitting an Arima model 
@@ -1052,18 +1049,20 @@ summary(model_arima)
 for_arima <- forecast::forecast(model_arima, h = 15)
 df_arima = as.data.frame(for_arima)
 FR_res_data_test$arima = df_arima$`Point Forecast`
-mape(FR_res_data_test$FR, FR_res_data_test$arima) # 2.565965
+mape(FR_res_data_test$FR, FR_res_data_test$arima) # 2.956304
 
 checkresiduals(model_arima)
 
 # Add forecasts from FR to dataframe
 for_FR <- forecast::forecast(model_arima, h = 75)
-df_for_FR = as.data.frame(for_FR)
+df_for_FR = as.data.frame(for_FR) %>% 
+  slice(16:75)
 eu_res_forecasts$FR = df_for_FR$`Point Forecast`
 
 autoplot(FR_res_ts) +
   autolayer(for_FR)+
   autolayer(FR_res_ts_test)
+
 
 
 ```
@@ -1104,12 +1103,12 @@ model_naive <-snaive(IE_res_ts, h=15)
 for_naive <- forecast::forecast(model_naive, h = 15)
 df_naive = as.data.frame(for_naive)
 IE_res_data_test$naive = df_naive$`Point Forecast`
-mape(IE_res_data_test$IE, IE_res_data_test$naive) # 11.49514
+mape(IE_res_data_test$IE, IE_res_data_test$naive) # 17.02757
 checkresiduals(naive_mod) 
 
 # Fitting an Arima model 
 
-model_arima <- Arima(IE_res_ts, order=c(1,0,1),
+model_arima <- Arima(IE_res_ts, order=c(1,1,1),
   seasonal=c(1,1,0))
 summary(model_arima) 
 
@@ -1122,7 +1121,8 @@ checkresiduals(model_arima)
 
 # Add forecasts from IE to dataframe
 for_IE <- forecast::forecast(model_arima, h = 75)
-df_for_IE = as.data.frame(for_IE)
+df_for_IE = as.data.frame(for_IE)%>% 
+  slice(16:75)
 eu_res_forecasts$IE = df_for_IE$`Point Forecast`
 
 autoplot(IE_res_ts) +
@@ -1133,9 +1133,6 @@ eu_res_forecasts %>%
   mutate(Datetime= floor_date(Datetime, "year")) %>% 
   group_by(Datetime) %>% 
   summarise_at(1:6, mean)
-
-model_arima <- auto.arima(IE_res_ts)
-
 
 ```
 
@@ -1150,11 +1147,11 @@ DK_res_data %>%
   geom_line()
 
 # Split into training and test sets
-DK_res_data_train <- DK_res_data[1:45,] 
-DK_res_data_test <- DK_res_data[46:60,]
+DK_res_data_train <- DK_res_data[1:52,] 
+DK_res_data_test <- DK_res_data[53:60,]
 
-DK_res_ts <- ts(DK_res_data_train[,2], start = c(2016, 1), end = c(2019, 09), frequency = 12)
-DK_res_ts_test <- ts(DK_res_data_test[, 2], start = c(2019, 10), end = c(2020, 12), frequency = 12)
+DK_res_ts <- ts(DK_res_data_train[,2], start = c(2016, 1), end = c(2020, 04), frequency = 12)
+DK_res_ts_test <- ts(DK_res_data_test[, 2], start = c(2020, 05), end = c(2020, 12), frequency = 12)
 
 # Decompose time series- multiplicative: Classical Decomposition
 DK_res_ts %>% decompose(type="multiplicative") %>%
@@ -1169,12 +1166,12 @@ DK_res_ts %>% ur.kpss() %>% summary()
 DK_res_ts %>% nsdiffs()
 
 # Naive model
-model_naive <-snaive(DK_res_ts, h=15)
+model_naive <-snaive(DK_res_ts, h=8)
 
-for_naive <- forecast::forecast(model_naive, h = 15)
+for_naive <- forecast::forecast(model_naive, h = 8)
 df_naive = as.data.frame(for_naive)
 DK_res_data_test$naive = df_naive$`Point Forecast`
-mape(DK_res_data_test$DK, DK_res_data_test$naive) # 18.7683
+mape(DK_res_data_test$DK, DK_res_data_test$naive) # 14.06615
 
 checkresiduals(naive_mod) 
 
@@ -1183,27 +1180,32 @@ checkresiduals(naive_mod)
 model_arima <- auto.arima(DK_res_ts)
 summary(model_arima) 
 
-for_arima <- forecast::forecast(model_arima, h = 15)
+for_arima <- forecast::forecast(model_arima, h = 8)
 df_arima = as.data.frame(for_arima)
 DK_res_data_test$arima = df_arima$`Point Forecast`
-mape(DK_res_data_test$DK, DK_res_data_test$arima) 
+mape(DK_res_data_test$DK, DK_res_data_test$arima)  # 9.998505
 
 checkresiduals(model_arima)
 
 # Add forecasts from DK to dataframe
-for_DK <- forecast::forecast(model_arima, h = 75)
-df_for_DK = as.data.frame(for_DK)
+for_DK <- forecast::forecast(model_arima, h = 68)
+df_for_DK = as.data.frame(for_DK) %>% 
+   slice(9:68)
 eu_res_forecasts$DK = df_for_DK$`Point Forecast`
 
 autoplot(DK_res_ts) +
   autolayer(for_DK)+
   autolayer(DK_res_ts_test)
 
+eu_res_forecasts %>% 
+  mutate(Datetime= floor_date(Datetime, "year")) %>% 
+  group_by(Datetime) %>% 
+  summarise_at(1:7, mean)
 
 ```
 
 
-```{r}
+```{r fig.height=8, fig.width=12}
 
 DE_res_data <- eu_green_percentage %>% 
   dplyr::select(1,3)
@@ -1214,11 +1216,11 @@ DE_res_data %>%
   geom_line()
 
 # Split into training and test sets
-DE_res_data_train <- DE_res_data[1:45,] 
-DE_res_data_test <- DE_res_data[46:60,]
+DE_res_data_train <- DE_res_data[1:52,] 
+DE_res_data_test <- DE_res_data[53:60,]
 
-DE_res_ts <- ts(DE_res_data_train[,2], start = c(2016, 1), end = c(2019, 09), frequency = 12)
-DE_res_ts_test <- ts(DE_res_data_test[, 2], start = c(2019, 10), end = c(2020, 12), frequency = 12)
+DE_res_ts <- ts(DE_res_data_train[,2], start = c(2016, 1), end = c(2020, 04), frequency = 12)
+DE_res_ts_test <- ts(DE_res_data_test[, 2], start = c(2020, 05), end = c(2020, 12), frequency = 12)
 
 # Decompose time series- multiplicative: Classical Decomposition
 DE_res_ts %>% decompose(type="multiplicative") %>%
@@ -1233,31 +1235,31 @@ DE_res_ts %>% ur.kpss() %>% summary()
 DE_res_ts %>% nsdiffs()
 
 # Naive model
-model_naive <-snaive(DE_res_ts, h=15)
+model_naive <-snaive(DE_res_ts, h=8)
 
-for_naive <- forecast::forecast(model_naive, h = 15)
+for_naive <- forecast::forecast(model_naive, h = 8)
 df_naive = as.data.frame(for_naive)
 DE_res_data_test$naive = df_naive$`Point Forecast`
-mape(DE_res_data_test$DE, DE_res_data_test$naive)  # 9.328165
+mape(DE_res_data_test$DE, DE_res_data_test$naive)  # 7.168154
 
 checkresiduals(naive_mod) 
 
 # Fitting an Arima model 
-
 model_arima <- Arima(DE_res_ts, order=c(4,0,1),
-  seasonal=c(1,1,0))
+  seasonal=c(1,1,0), lambda=0)
 summary(model_arima) 
 
-for_arima <- forecast::forecast(model_arima, h = 15)
+for_arima <- forecast::forecast(model_arima, h = 8)
 df_arima = as.data.frame(for_arima)
 DE_res_data_test$arima = df_arima$`Point Forecast`
-mape(DE_res_data_test$DE, DE_res_data_test$arima)  # 8.387518
+mape(DE_res_data_test$DE, DE_res_data_test$arima)  # 12.31971
 
 checkresiduals(model_arima)
 
 # Add forecasts from DE to dataframe
-for_DE <- forecast::forecast(model_arima, h = 75)
-df_for_DE = as.data.frame(for_DE)
+for_DE <- forecast::forecast(model_arima, h = 68)
+df_for_DE = as.data.frame(for_DE) %>% 
+   slice(9:68)
 eu_res_forecasts$DE = df_for_DE$`Point Forecast`
 
 autoplot(DE_res_ts) +
@@ -1270,7 +1272,9 @@ eu_res_forecasts %>%
   summarise_at(1:8, mean)
 
 ```
-```{r}
+
+
+```{r fig.height=8, fig.width=12}
 
 NIR_res_data <- eu_green_percentage %>% 
   dplyr::select(1,11)
@@ -1305,25 +1309,27 @@ model_naive <-snaive(NIR_res_ts, h=15)
 for_naive <- forecast::forecast(model_naive, h = 15)
 df_naive = as.data.frame(for_naive)
 NIR_res_data_test$naive = df_naive$`Point Forecast`
-mape(NIR_res_data_test$NIR, NIR_res_data_test$naive)  # 2310.798
+mape(NIR_res_data_test$NIR, NIR_res_data_test$naive) # 14.28002
 
 checkresiduals(naive_mod) 
 
 # Fitting an Arima model 
 
-model_arima <- auto.arima(NIR_res_ts)
-summary(model_arima) 
+model_arima <- Arima(NIR_res_ts, order=c(2,1,0),
+  seasonal=c(1,0,0))
+summary(model_arima)
 
 for_arima <- forecast::forecast(model_arima, h = 15)
 df_arima = as.data.frame(for_arima)
 NIR_res_data_test$arima = df_arima$`Point Forecast`
-mape(NIR_res_data_test$NIR, NIR_res_data_test$arima)  
+mape(NIR_res_data_test$NIR, NIR_res_data_test$arima) # 13.22635
 
 checkresiduals(model_arima)
 
 # Add forecasts from NIR to dataframe
 for_NIR <- forecast::forecast(model_arima, h = 75)
-df_for_NIR = as.data.frame(for_NIR)
+df_for_NIR = as.data.frame(for_NIR) %>% 
+  slice(16:75)
 eu_res_forecasts$NIR = df_for_NIR$`Point Forecast`
 
 autoplot(NIR_res_ts) +
@@ -1333,9 +1339,7 @@ autoplot(NIR_res_ts) +
 eu_res_forecasts %>% 
   mutate(Datetime= floor_date(Datetime, "year")) %>% 
   group_by(Datetime) %>% 
-  summarise_at(1:8, mean)
-
-
+  summarise_at(1:9, mean)
 
 ```
 
