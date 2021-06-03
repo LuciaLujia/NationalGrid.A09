@@ -256,33 +256,6 @@ checkresiduals(model_naive)
 
 ```
 
-```{r fig.height=8, fig.width=12}
-
-# Holt-Winters Seasonal Method (Multiplicative and Additive)
-
-hw_a_model <- hw(GB_ts,seasonal="additive")
-
-for_hwa <- forecast::forecast(hw_a_model, h = 15)
-df_hwa = as.data.frame(for_hwa)
-GB_data_test$hwa = df_hwa$`Point Forecast`
-# Check MAPE of Holt-Winter's Additive Model
-mape(GB_data_test$GB, GB_data_test$hwa) # 15.90194
-
-checkresiduals(hw_a_model)
-
-
-hw_m_model <- hw(GB_ts,seasonal="multiplicative")
-
-for_hwm <- forecast::forecast(hw_m_model, h = 15)
-df_hwm = as.data.frame(for_hwm)
-GB_data_test$hwm = df_hwm$`Point Forecast`
-# Check MAPE of Holt-Winter's Additive Model
-mape(GB_data_test$GB, GB_data_test$hwm) # 45.41247
-
-checkresiduals(hw_m_model)
-
-
-```
 
 ```{r fig.height=8, fig.width=12}
 
@@ -294,7 +267,7 @@ summary(model_arima)
 for_arima <- forecast::forecast(model_arima, h = 15)
 df_arima = as.data.frame(for_arima)
 GB_data_test$arima = df_arima$`Point Forecast`
-mape(GB_data_test$GB, GB_data_test$arima)
+mape(GB_data_test$GB, GB_data_test$arima) # 10.19661
 
 # 0rder=c(5,1,1), seasonal=c(2,1,1), lambda=0 - # MAPE 10.19661 # AICc=-28.32
 
@@ -360,29 +333,6 @@ BE_data_test$naive = df_naive$`Point Forecast`
 mape(BE_data_test$BE, BE_data_test$naive)  # 30.25098
 
 checkresiduals(naive_mod)
-
-# Holt-Winters Seasonal Method (Multiplicative and Additive)
-
-hw_a_model <- hw(BE_ts,seasonal="additive")
-
-for_hwa <- forecast::forecast(hw_a_model, h = 15)
-df_hwa = as.data.frame(for_hwa)
-BE_data_test$hwa = df_hwa$`Point Forecast`
-# Check MAPE of Holt-Winter's Additive Model
-mape(BE_data_test$BE, BE_data_test$hwa) #  24.89009
-
-checkresiduals(hw_a_model)
-
-hw_m_model <- hw(BE_ts,seasonal="multiplicative")
-
-for_hwm <- forecast::forecast(hw_m_model, h = 15)
-df_hwm = as.data.frame(for_hwm)
-BE_data_test$hwm = df_hwm$`Point Forecast`
-# Check MAPE of Holt-Winter's Multiplicative Model
-mape(BE_data_test$BE, BE_data_test$hwm)  # 31.69228
-
-checkresiduals(hw_m_model)
-
 
 # Fitting an Arima model 
 
@@ -464,28 +414,6 @@ NO_data_test$naive = df_naive$`Point Forecast`
 mape(NO_data_test$NO, NO_data_test$naive) # 92.00905
 
 checkresiduals(naive_mod)
-
-# Holt-Winters Seasonal Method (Multiplicative and Additive)
-
-hw_a_model <- hw(NO_ts,seasonal="additive", h=75)
-
-for_hwa <- forecast::forecast(hw_a_model, h = 15)
-df_hwa = as.data.frame(for_hwa)
-NO_data_test$hwa = df_hwa$`Point Forecast`
-# Check MAPE of Holt-Winter's Additive Model
-mape(NO_data_test$NO, NO_data_test$hwa) # 74.92197
-
-checkresiduals(hw_a_model)
-
-hw_m_model <- hw(NO_ts,seasonal="multiplicative")
-
-for_hwm <- forecast::forecast(hw_m_model, h = 15)
-df_hwm = as.data.frame(for_hwm)
-NO_data_test$hwm = df_hwm$`Point Forecast`
-# Check MAPE of Holt-Winter's Multiplicative Model
-mape(NO_data_test$NO, NO_data_test$hwm)  # 77.67577
-
-checkresiduals(hw_m_model)
 
 # Fitting an Arima model 
 
@@ -570,29 +498,6 @@ mape(FR_data_test$FR, FR_data_test$naive)  # 34.03101
 
 checkresiduals(naive_mod)
 
-# Holt-Winters Seasonal Method (Multiplicative and Additive)
-
-hw_a_model <- hw(FR_ts,seasonal="additive")
-
-for_hwa <- forecast::forecast(hw_a_model, h = 15)
-df_hwa = as.data.frame(for_hwa)
-FR_data_test$hwa = df_hwa$`Point Forecast`
-# Check MAPE of Holt-Winter's Additive Model
-mape(FR_data_test$FR, FR_data_test$hwa) # 41.21512
-
-checkresiduals(hw_a_model)
-
-hw_m_model <- hw(FR_ts,seasonal="multiplicative")
-
-for_hwm <- forecast::forecast(hw_m_model, h = 15)
-df_hwm = as.data.frame(for_hwm)
-FR_data_test$hwm = df_hwm$`Point Forecast`
-# Check MAPE of Holt-Winter's Multiplicative Model
-mape(FR_data_test$FR, FR_data_test$hwm)  # 35.86781
-
-checkresiduals(hw_m_model)
-
-
 # Fitting an Arima model 
 
 model_arima <- auto.arima(FR_ts)
@@ -663,29 +568,6 @@ mape(NL_data_test$NL, NL_data_test$naive)  # 18.10423
 
 checkresiduals(naive_mod)
 
-# Holt-Winters Seasonal Method (Multiplicative and Additive)
-
-hw_a_model <- hw(NL_ts,seasonal="additive")
-
-for_hwa <- forecast::forecast(hw_a_model, h = 15)
-df_hwa = as.data.frame(for_hwa)
-NL_data_test$hwa = df_hwa$`Point Forecast`
-# Check MAPE of Holt-Winter's Additive Model
-mape(NL_data_test$NL, NL_data_test$hwa) # 12.85088
-
-checkresiduals(hw_a_model)
-
-hw_m_model <- hw(NL_ts,seasonal="multiplicative")
-
-for_hwm <- forecast::forecast(hw_m_model, h = 15)
-df_hwm = as.data.frame(for_hwm)
-NL_data_test$hwm = df_hwm$`Point Forecast`
-# Check MAPE of Holt-Winter's Multiplicative Model
-mape(NL_data_test$NL, NL_data_test$hwm)  # 24.58347
-
-checkresiduals(hw_m_model)
-
-
 # Fitting an Arima model 
 
 model_arima <- Arima(NL_ts, order=c(1,1,0),
@@ -754,28 +636,6 @@ DK_data_test$naive = df_naive$`Point Forecast`
 mape(DK_data_test$DK, DK_data_test$naive) # 48.97638
 
 checkresiduals(naive_mod)
-
-# Holt-Winters Seasonal Method (Multiplicative and Additive)
-
-hw_a_model <- hw(DK_ts,seasonal="additive")
-
-for_hwa <- forecast::forecast(hw_a_model, h = 15)
-df_hwa = as.data.frame(for_hwa)
-DK_data_test$hwa = df_hwa$`Point Forecast`
-# Check MAPE of Holt-Winter's Additive Model
-mape(DK_data_test$DK, DK_data_test$hwa)# 45.01442
-
-checkresiduals(hw_a_model)
-
-hw_m_model <- hw(DK_ts,seasonal="multiplicative")
-
-for_hwm <- forecast::forecast(hw_m_model, h = 15)
-df_hwm = as.data.frame(for_hwm)
-DK_data_test$hwm = df_hwm$`Point Forecast`
-# Check MAPE of Holt-Winter's Multiplicative Model
-mape(DK_data_test$DK, DK_data_test$hwm)  # 48.90951
-
-checkresiduals(hw_m_model)
 
 # Fitting an Arima model 
 
@@ -851,28 +711,6 @@ mape(IE_data_test$IE, IE_data_test$naive) # 21.99956
 
 checkresiduals(naive_mod)
 
-# Holt-Winters Seasonal Method (Multiplicative and Additive)
-
-hw_a_model <- hw(IE_ts,seasonal="additive")
-
-for_hwa <- forecast::forecast(hw_a_model, h = 15)
-df_hwa = as.data.frame(for_hwa)
-IE_data_test$hwa = df_hwa$`Point Forecast`
-# Check MAPE of Holt-Winter's Additive Model
-mape(IE_data_test$IE, IE_data_test$hwa) # 11.24222
-
-checkresiduals(hw_a_model)
-
-hw_m_model <- hw(IE_ts,seasonal="multiplicative")
-
-for_hwm <- forecast::forecast(hw_m_model, h = 15)
-df_hwm = as.data.frame(for_hwm)
-IE_data_test$hwm = df_hwm$`Point Forecast`
-# Check MAPE of Holt-Winter's Multiplicative Model
-mape(IE_data_test$IE, IE_data_test$hwm)  # 11.70813
-
-checkresiduals(hw_m_model)
-
 # Fitting an Arima model 
 
 model_arima <- Arima(IE_ts, order=c(3,1,2),
@@ -943,28 +781,6 @@ mape(GB_res_data_test$GB, GB_res_data_test$naive) #  12.01992
 
 checkresiduals(naive_mod)
 
-# Holt-Winters Seasonal Method (Multiplicative and Additive)
-
-hw_a_model <- hw(GB_res_ts,seasonal="additive")
-
-for_hwa <- forecast::forecast(hw_a_model, h = 15)
-df_hwa = as.data.frame(for_hwa)
-GB_res_data_test$hwa = df_hwa$`Point Forecast`
-# Check MAPE of Holt-Winter's Additive Model
-mape(GB_res_data_test$GB, GB_res_data_test$hwa) # 23.18201
-
-checkresiduals(hw_a_model)
-
-hw_m_model <- hw(GB_res_ts,seasonal="multiplicative")
-
-for_hwm <- forecast::forecast(hw_m_model, h = 15)
-df_hwm = as.data.frame(for_hwm)
-GB_res_data_test$hwm = df_hwm$`Point Forecast`
-# Check MAPE of Holt-Winter's Multiplicative Model
-mape(GB_res_data_test$GB, GB_res_data_test$hwm) # 17.49423
-
-checkresiduals(hw_m_model)
-
 # Fitting an Arima model 
 
 model_arima <- Arima(GB_res_ts, order=c(2,0,1),
@@ -1033,28 +849,6 @@ df_naive = as.data.frame(for_naive)
 BE_res_data_test$naive = df_naive$`Point Forecast`
 mape(BE_res_data_test$BE, BE_res_data_test$naive) 
 checkresiduals(naive_mod) # 24.05762
-
-# Holt-Winters Seasonal Method (Multiplicative and Additive)
-
-hw_a_model <- hw(BE_res_ts,seasonal="additive")
-
-for_hwa <- forecast::forecast(hw_a_model, h = 15)
-df_hwa = as.data.frame(for_hwa)
-BE_res_data_test$hwa = df_hwa$`Point Forecast`
-# Check MAPE of Holt-Winter's Additive Model
-mape(BE_res_data_test$BE, BE_res_data_test$hwa) # 12.30619
-
-checkresiduals(hw_a_model)
-
-hw_m_model <- hw(BE_res_ts,seasonal="multiplicative")
-
-for_hwm <- forecast::forecast(hw_m_model, h = 15)
-df_hwm = as.data.frame(for_hwm)
-BE_res_data_test$hwm = df_hwm$`Point Forecast`
-# Check MAPE of Holt-Winter's Multiplicative Model
-mape(BE_res_data_test$BE, BE_res_data_test$hwm) # 21.10454
-
-checkresiduals(hw_m_model)
 
 # Fitting an Arima model 
 
@@ -1127,28 +921,6 @@ NO_res_data_test$naive = df_naive$`Point Forecast`
 mape(NO_res_data_test$NO, NO_res_data_test$naive) # 3.15175
 checkresiduals(naive_mod) 
 
-# Holt-Winters Seasonal Method (Multiplicative and Additive)
-
-hw_a_model <- hw(NO_res_ts,seasonal="additive")
-
-for_hwa <- forecast::forecast(hw_a_model, h = 15)
-df_hwa = as.data.frame(for_hwa)
-NO_res_data_test$hwa = df_hwa$`Point Forecast`
-# Check MAPE of Holt-Winter's Additive Model
-mape(NO_res_data_test$NO, NO_res_data_test$hwa) # 2.646567
-
-checkresiduals(hw_a_model)
-
-hw_m_model <- hw(NO_res_ts,seasonal="multiplicative")
-
-for_hwm <- forecast::forecast(hw_m_model, h = 15)
-df_hwm = as.data.frame(for_hwm)
-NO_res_data_test$hwm = df_hwm$`Point Forecast`
-# Check MAPE of Holt-Winter's Multiplicative Model
-mape(NO_res_data_test$NO, NO_res_data_test$hwm) # 2.532906
-
-checkresiduals(hw_m_model)
-
 # Fitting an Arima model 
 
 model_arima <- Arima(NO_res_ts, order=c(1,1,1),
@@ -1218,28 +990,6 @@ NL_res_data_test$naive = df_naive$`Point Forecast`
 mape(NL_res_data_test$NL, NL_res_data_test$naive) # 28.65688
 checkresiduals(naive_mod) 
 
-# Holt-Winters Seasonal Method (Multiplicative and Additive)
-
-hw_a_model <- hw(NL_res_ts,seasonal="additive")
-
-for_hwa <- forecast::forecast(hw_a_model, h = 15)
-df_hwa = as.data.frame(for_hwa)
-NL_res_data_test$hwa = df_hwa$`Point Forecast`
-# Check MAPE of Holt-Winter's Additive Model
-mape(NL_res_data_test$NL, NL_res_data_test$hwa) # 15.00575
-
-checkresiduals(hw_a_model)
-
-hw_m_model <- hw(NL_res_ts,seasonal="multiplicative")
-
-for_hwm <- forecast::forecast(hw_m_model, h = 15)
-df_hwm = as.data.frame(for_hwm)
-NL_res_data_test$hwm = df_hwm$`Point Forecast`
-# Check MAPE of Holt-Winter's Multiplicative Model
-mape(NL_res_data_test$NL, NL_res_data_test$hwm) # 66.18439
-
-checkresiduals(hw_m_model)
-
 # Fitting an Arima model 
 
 model_arima <- Arima(NL_res_ts, order=c(2,1,2),
@@ -1307,31 +1057,9 @@ FR_res_data_test$naive = df_naive$`Point Forecast`
 mape(FR_res_data_test$FR, FR_res_data_test$naive) # 1.803188
 checkresiduals(naive_mod) 
 
-# Holt-Winters Seasonal Method (Multiplicative and Additive)
-
-hw_a_model <- hw(FR_res_ts,seasonal="additive")
-
-for_hwa <- forecast::forecast(hw_a_model, h = 15)
-df_hwa = as.data.frame(for_hwa)
-FR_res_data_test$hwa = df_hwa$`Point Forecast`
-# Check MAPE of Holt-Winter's Additive Model
-mape(FR_res_data_test$FR, FR_res_data_test$hwa) #  2.498804
-
-checkresiduals(hw_a_model)
-
-hw_m_model <- hw(FR_res_ts,seasonal="multiplicative")
-
-for_hwm <- forecast::forecast(hw_m_model, h = 15)
-df_hwm = as.data.frame(for_hwm)
-FR_res_data_test$hwm = df_hwm$`Point Forecast`
-# Check MAPE of Holt-Winter's Multiplicative Model
-mape(FR_res_data_test$FR, FR_res_data_test$hwm) # 2.51212
-
-checkresiduals(hw_m_model)
-
 # Fitting an Arima model 
 
-model_arima <- auto.arima(FR_res_ts, lambda = 0)
+model_arima <- auto.arima(FR_res_ts)
 summary(model_arima) 
 
 for_arima <- forecast::forecast(model_arima, h = 15)
@@ -1357,11 +1085,11 @@ eu_res_forecasts %>%
 
 ```
 
-```{r}
+```{r fig.height=8, fig.width=12}
 
 
 IE_res_data <- eu_green_percentage %>% 
-  dplyr::select(1,7)
+  dplyr::select(1,9)
 
 # Visualize the change in green energy percentage over time-Ireland
 IE_res_data %>% 
@@ -1393,33 +1121,13 @@ model_naive <-snaive(IE_res_ts, h=15)
 for_naive <- forecast::forecast(model_naive, h = 15)
 df_naive = as.data.frame(for_naive)
 IE_res_data_test$naive = df_naive$`Point Forecast`
-mape(IE_res_data_test$IE, IE_res_data_test$naive) 
+mape(IE_res_data_test$IE, IE_res_data_test$naive) # 11.49514
 checkresiduals(naive_mod) 
-
-# Holt-Winters Seasonal Method (Multiplicative and Additive)
-
-hw_a_model <- hw(IE_res_ts,seasonal="additive")
-
-for_hwa <- forecast::forecast(hw_a_model, h = 15)
-df_hwa = as.data.frame(for_hwa)
-IE_res_data_test$hwa = df_hwa$`Point Forecast`
-# Check MAPE of Holt-Winter's Additive Model
-mape(IE_res_data_test$IE, IE_res_data_test$hwa) 
-checkresiduals(hw_a_model)
-
-hw_m_model <- hw(IE_res_ts,seasonal="multiplicative")
-
-for_hwm <- forecast::forecast(hw_m_model, h = 15)
-df_hwm = as.data.frame(for_hwm)
-IE_res_data_test$hwm = df_hwm$`Point Forecast`
-# Check MAPE of Holt-Winter's Multiplicative Model
-mape(IE_res_data_test$IE, IE_res_data_test$hwm) 
-
-checkresiduals(hw_m_model)
 
 # Fitting an Arima model 
 
-model_arima <- auto.arima(IE_res_ts, lambda = 0)
+model_arima <- Arima(IE_res_ts, order=c(1,0,1),
+  seasonal=c(1,1,0))
 summary(model_arima) 
 
 for_arima <- forecast::forecast(model_arima, h = 15)
@@ -1441,12 +1149,80 @@ autoplot(IE_res_ts) +
 eu_res_forecasts %>% 
   mutate(Datetime= floor_date(Datetime, "year")) %>% 
   group_by(Datetime) %>% 
-  summarise_at(1:5, mean)
+  summarise_at(1:6, mean)
+
+model_arima <- auto.arima(IE_res_ts)
 
 
+```
 
+```{r}
 
+DK_res_data <- eu_green_percentage %>% 
+  dplyr::select(1,4)
 
+# Visualize the change in green energy percentage over time-Ireland
+DK_res_data %>% 
+  ggplot(aes(x=Datetime, y= DK))+
+  geom_line()
+
+# Split into training and test sets
+DK_res_data_train <- DK_res_data[1:45,] 
+DK_res_data_test <- DK_res_data[46:60,]
+
+DK_res_ts <- ts(DK_res_data_train[,2], start = c(2016, 1), end = c(2019, 09), frequency = 12)
+DK_res_ts_test <- ts(DK_res_data_test[, 2], start = c(2019, 10), end = c(2020, 12), frequency = 12)
+
+# Decompose time series- multiplicative: Classical Decomposition
+DK_res_ts %>% decompose(type="multiplicative") %>%
+  autoplot() 
+
+# Test for autocorrelation and partial autocorrelation
+Acf(DK_res_ts, lag.max = 20)
+Pacf(DK_res_ts, lag.max=20)
+
+# Checking whether the time-series is stationary or not using KPSS test
+DK_res_ts %>% ur.kpss() %>% summary()
+DK_res_ts %>% nsdiffs()
+
+# Naive model
+model_naive <-snaive(DK_res_ts, h=15)
+
+for_naive <- forecast::forecast(model_naive, h = 15)
+df_naive = as.data.frame(for_naive)
+DK_res_data_test$naive = df_naive$`Point Forecast`
+mape(DK_res_data_test$DK, DK_res_data_test$naive) # 18.7683
+
+checkresiduals(naive_mod) 
+
+# Fitting an Arima model 
+
+model_arima <- Arima(DK_res_ts, order=c(3,0,0),
+  seasonal=c(1,1,0))
+summary(model_arima) 
+
+for_arima <- forecast::forecast(model_arima, h = 15)
+df_arima = as.data.frame(for_arima)
+DK_res_data_test$arima = df_arima$`Point Forecast`
+mape(DK_res_data_test$DK, DK_res_data_test$arima) 
+
+checkresiduals(model_arima)
+
+# Add forecasts from DK to dataframe
+for_DK <- forecast::forecast(model_arima, h = 75)
+df_for_DK = as.data.frame(for_DK)
+eu_res_forecasts$DK = df_for_DK$`Point Forecast`
+
+autoplot(DK_res_ts) +
+  autolayer(for_DK)+
+  autolayer(DK_res_ts_test)
+
+eu_res_forecasts %>% 
+  mutate(Datetime= floor_date(Datetime, "year")) %>% 
+  group_by(Datetime) %>% 
+  summarise_at(1:6, mean)
+
+model_arima <- auto.arima(DK_res_ts)
 
 
 ```
