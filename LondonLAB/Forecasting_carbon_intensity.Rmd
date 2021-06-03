@@ -442,7 +442,6 @@ autoplot(NO_ts) +
 
 ```{r fig.height=8, fig.width=12}
 
-
 FR_data <- eu_carbon_intensity %>% 
   dplyr::select(1,7)
 
@@ -617,9 +616,7 @@ DK_ts %>% decompose(type="multiplicative") %>%
 
 # Test for autocorrelation 
 Acf(DK_ts, lag.max = 20)
-
 Pacf(DK_ts, lag.max=20)
-
 
 # Checking whether the time-series is stationary or not using KPSS test
 DK_ts %>% ur.kpss() %>% summary()
@@ -659,12 +656,6 @@ autoplot(DK_ts) +
   autolayer(for_DK)+
   autolayer(DK_ts_test)
 
-
-eu_forecasts <- eu_forecasts %>% 
-  mutate_at(2:7, function(x) ifelse(x<0,0,x)) %>% 
-  slice(16:75)
-
-write_csv(eu_forecasts,"eu_forecasts.csv")
 
 ```
 
@@ -732,6 +723,12 @@ eu_forecasts$IE = df_for_IE$`Point Forecast`
 autoplot(IE_ts) +
   autolayer(for_IE)+
   autolayer(IE_ts_test)
+
+eu_forecasts <- eu_forecasts %>% 
+  mutate_at(2:8, function(x) ifelse(x<0,0,x)) %>% 
+  slice(16:75)
+
+write_csv(eu_forecasts,"eu_forecasts.csv")
 
 
 ```
@@ -872,11 +869,6 @@ autoplot(BE_res_ts) +
   autolayer(for_BE)+
   autolayer(BE_res_ts_test)
 
-eu_res_forecasts %>% 
-  mutate(Datetime= floor_date(Datetime, "year")) %>% 
-  group_by(Datetime) %>% 
-  summarise_at(1:3, mean)
-
 
 ```
 
@@ -1012,11 +1004,6 @@ autoplot(NL_res_ts) +
   autolayer(for_NL)+
   autolayer(NL_res_ts_test)
 
-eu_res_forecasts %>% 
-  mutate(Datetime= floor_date(Datetime, "year")) %>% 
-  group_by(Datetime) %>% 
-  summarise_at(1:5, mean)
-
 
 ```
 ```{r fig.height=8, fig.width=12}
@@ -1078,10 +1065,6 @@ autoplot(FR_res_ts) +
   autolayer(for_FR)+
   autolayer(FR_res_ts_test)
 
-eu_res_forecasts %>% 
-  mutate(Datetime= floor_date(Datetime, "year")) %>% 
-  group_by(Datetime) %>% 
-  summarise_at(1:5, mean)
 
 ```
 
@@ -1161,7 +1144,7 @@ model_arima <- auto.arima(IE_res_ts)
 DK_res_data <- eu_green_percentage %>% 
   dplyr::select(1,4)
 
-# Visualize the change in green energy percentage over time-Ireland
+# Visualize the change in green energy percentage over time-Denmark
 DK_res_data %>% 
   ggplot(aes(x=Datetime, y= DK))+
   geom_line()
@@ -1197,8 +1180,7 @@ checkresiduals(naive_mod)
 
 # Fitting an Arima model 
 
-model_arima <- Arima(DK_res_ts, order=c(3,0,0),
-  seasonal=c(1,1,0))
+model_arima <- auto.arima(DK_res_ts)
 summary(model_arima) 
 
 for_arima <- forecast::forecast(model_arima, h = 15)
@@ -1217,13 +1199,144 @@ autoplot(DK_res_ts) +
   autolayer(for_DK)+
   autolayer(DK_res_ts_test)
 
+
+```
+
+
+```{r}
+
+DE_res_data <- eu_green_percentage %>% 
+  dplyr::select(1,3)
+
+# Visualize the change in green energy percentage over time- Germany
+DE_res_data %>% 
+  ggplot(aes(x=Datetime, y= DE))+
+  geom_line()
+
+# Split into training and test sets
+DE_res_data_train <- DE_res_data[1:45,] 
+DE_res_data_test <- DE_res_data[46:60,]
+
+DE_res_ts <- ts(DE_res_data_train[,2], start = c(2016, 1), end = c(2019, 09), frequency = 12)
+DE_res_ts_test <- ts(DE_res_data_test[, 2], start = c(2019, 10), end = c(2020, 12), frequency = 12)
+
+# Decompose time series- multiplicative: Classical Decomposition
+DE_res_ts %>% decompose(type="multiplicative") %>%
+  autoplot() 
+
+# Test for autocorrelation and partial autocorrelation
+Acf(DE_res_ts, lag.max = 20)
+Pacf(DE_res_ts, lag.max=20)
+
+# Checking whether the time-series is stationary or not using KPSS test
+DE_res_ts %>% ur.kpss() %>% summary()
+DE_res_ts %>% nsdiffs()
+
+# Naive model
+model_naive <-snaive(DE_res_ts, h=15)
+
+for_naive <- forecast::forecast(model_naive, h = 15)
+df_naive = as.data.frame(for_naive)
+DE_res_data_test$naive = df_naive$`Point Forecast`
+mape(DE_res_data_test$DE, DE_res_data_test$naive)  # 9.328165
+
+checkresiduals(naive_mod) 
+
+# Fitting an Arima model 
+
+model_arima <- Arima(DE_res_ts, order=c(4,0,1),
+  seasonal=c(1,1,0))
+summary(model_arima) 
+
+for_arima <- forecast::forecast(model_arima, h = 15)
+df_arima = as.data.frame(for_arima)
+DE_res_data_test$arima = df_arima$`Point Forecast`
+mape(DE_res_data_test$DE, DE_res_data_test$arima)  # 8.387518
+
+checkresiduals(model_arima)
+
+# Add forecasts from DE to dataframe
+for_DE <- forecast::forecast(model_arima, h = 75)
+df_for_DE = as.data.frame(for_DE)
+eu_res_forecasts$DE = df_for_DE$`Point Forecast`
+
+autoplot(DE_res_ts) +
+  autolayer(for_DE)+
+  autolayer(DE_res_ts_test)
+
 eu_res_forecasts %>% 
   mutate(Datetime= floor_date(Datetime, "year")) %>% 
   group_by(Datetime) %>% 
-  summarise_at(1:6, mean)
+  summarise_at(1:8, mean)
 
-model_arima <- auto.arima(DK_res_ts)
+```
+```{r}
+
+NIR_res_data <- eu_green_percentage %>% 
+  dplyr::select(1,11)
+
+# Visualize the change in green energy percentage over time- Germany
+NIR_res_data %>% 
+  ggplot(aes(x=Datetime, y= NIR))+
+  geom_line()
+
+# Split into training and test sets
+NIR_res_data_train <- NIR_res_data[1:45,] 
+NIR_res_data_test <- NIR_res_data[46:60,]
+
+NIR_res_ts <- ts(NIR_res_data_train[,2], start = c(2016, 1), end = c(2019, 09), frequency = 12)
+NIR_res_ts_test <- ts(NIR_res_data_test[, 2], start = c(2019, 10), end = c(2020, 12), frequency = 12)
+
+# Decompose time series- multiplicative: Classical Decomposition
+NIR_res_ts %>% decompose(type="multiplicative") %>%
+  autoplot() 
+
+# Test for autocorrelation and partial autocorrelation
+Acf(NIR_res_ts, lag.max = 20)
+Pacf(NIR_res_ts, lag.max=20)
+
+# Checking whether the time-series is stationary or not using KPSS test
+NIR_res_ts %>% ur.kpss() %>% summary()
+NIR_res_ts %>% nsdiffs()
+
+# Naive model
+model_naive <-snaive(NIR_res_ts, h=15)
+
+for_naive <- forecast::forecast(model_naive, h = 15)
+df_naive = as.data.frame(for_naive)
+NIR_res_data_test$naive = df_naive$`Point Forecast`
+mape(NIR_res_data_test$NIR, NIR_res_data_test$naive)  # 2310.798
+
+checkresiduals(naive_mod) 
+
+# Fitting an Arima model 
+
+model_arima <- auto.arima(NIR_res_ts)
+summary(model_arima) 
+
+for_arima <- forecast::forecast(model_arima, h = 15)
+df_arima = as.data.frame(for_arima)
+NIR_res_data_test$arima = df_arima$`Point Forecast`
+mape(NIR_res_data_test$NIR, NIR_res_data_test$arima)  
+
+checkresiduals(model_arima)
+
+# Add forecasts from NIR to dataframe
+for_NIR <- forecast::forecast(model_arima, h = 75)
+df_for_NIR = as.data.frame(for_NIR)
+eu_res_forecasts$NIR = df_for_NIR$`Point Forecast`
+
+autoplot(NIR_res_ts) +
+  autolayer(for_NIR)+
+  autolayer(NIR_res_ts_test)
+
+eu_res_forecasts %>% 
+  mutate(Datetime= floor_date(Datetime, "year")) %>% 
+  group_by(Datetime) %>% 
+  summarise_at(1:8, mean)
+
 
 
 ```
+
 
