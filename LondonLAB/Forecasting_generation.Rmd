@@ -1571,15 +1571,18 @@ result.IE
 
 ```{r}
 
-all_pred <-rbind(result.GB, result.BE, result.NO, result.FR, result.NL, result.DK, result.IE) %>% 
-  mutate(weighted_carbon = fcst * carbon_intensity)
+all_pred <-rbind(result.GB, result.BE, result.NO, result.FR, result.NL, result.DK, result.IE) 
+all_pred
 
 all_pred_carbon <- all_pred %>%
   group_by(Country, time) %>% 
-  mutate(carbon = sum(weighted_carbon)/sum(fcst)) %>% 
+  mutate(carbon = sum(fcst * carbon_intensity)/sum(fcst)) %>% 
   dplyr::select(c(time, Country, carbon)) %>% 
   distinct()
-  
+all_pred_carbon
+
+write.csv(all_pred, "eu_5mon_generation_prediction.csv", row.names = FALSE)
+write.csv(all_pred_carbon, "eu_5mon_carbon_intensities_prediction.csv", row.names = FALSE)
 
 ```
 
