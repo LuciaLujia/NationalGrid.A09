@@ -216,7 +216,9 @@ agg_data %>%
 
 # VAR - original time series
 
-## TS data preparation
+## GB Prediction
+
+### TS data preparation
 
 ```{r, warning = FALSE}
 
@@ -258,7 +260,7 @@ for (i in (1:length(original_list))){
 ```
 
 
-## Model
+### Model
 
 ```{r, warning = FALSE}
 
@@ -291,6 +293,29 @@ plot(Stability2)
 forecast1 <- predict(Model1, n.ahead = 5, ci = 0.95)
 forecast2 <- predict(Model2, n.ahead = 5, ci = 0.95)
 
+# Compare results
+# Model1 rmse
+rmse_list <- list(forecast1$fcst$Biomass, forecast1$fcst$Fossil.Gas, forecast1$fcst$Fossil.Hard.coal, forecast1$fcst$Nuclear, forecast1$fcst$Other, forecast1$fcst$Solar, forecast1$fcst$Hydro, forecast1$fcst$Wind)
+
+all <- 0
+for (i in rmse_list){
+  all = all + rmse(testing[1:5], i)
+}
+avg <- all / length(rmse_list)
+avg
+
+# Model2 rmse
+
+rmse_list <- list(forecast2$fcst$Biomass, forecast2$fcst$Fossil.Gas, forecast2$fcst$Fossil.Hard.coal, forecast2$fcst$Nuclear, forecast2$fcst$Other, forecast2$fcst$Solar, forecast2$fcst$Hydro, forecast2$fcst$Wind)
+
+all <- 0
+for (i in rmse_list){
+  all = all + rmse(testing[1:5], i)
+}
+avg <- all / length(rmse_list)
+avg
+
+
 # Plot results
 for (i in (1:length(original_list))){
   p <- fanchart(forecast1, names = original_name_list[[i]], main = cat("Fanchart for",original_name_list[[i]]), xlab = "Horizon", ylab = original_name_list[[i]])
@@ -310,12 +335,12 @@ for (i in (1:length(original_list))){
 
 
 
-# Prediction
+### Prediction
 
 ```{r, message=FALSE}
 
 # Model building
-Model <- VAR(v1, p = 5, type = "const", season = 4, exog = NULL) 
+Model <- VAR(v1, p = 5, type = "const", season = NULL, exog = NULL) 
 
 # Stability Test
 Stability <- stability(Model, type = "OLS-CUSUM")
@@ -329,6 +354,1235 @@ for (i in (1:length(original_list))){
   p <- fanchart(forecast, names = original_name_list[[i]], main = cat("Fanchart for",original_name_list[[i]]), xlab = "Horizon", ylab = original_name_list[[i]])
   show(p)
 }
+
+```
+### Export Result
+
+```{r}
+
+Biomass <- data.frame(forecast$fcst$Biomass) %>% 
+  mutate(type = "Biomass",
+         time = row_number(),
+         carbon_intensity = carbon_intensities[["Biomass"]])
+
+Fossil.Gas <- data.frame(forecast$fcst$Fossil.Gas) %>% 
+  mutate(type = "Fossil.Gas",
+         time = row_number(),
+         carbon_intensity = carbon_intensities[["Fossil.Gas"]])
+
+Fossil.Hard.coal <- data.frame(forecast$fcst$Fossil.Hard.coal) %>% 
+  mutate(type = "Fossil.Hard.coal",
+         time = row_number(),
+         carbon_intensity = carbon_intensities[["Fossil.Hard.coal"]])
+
+Nuclear <- data.frame(forecast$fcst$Nuclear) %>% 
+  mutate(type = "Nuclear",
+         time = row_number(),
+         carbon_intensity = 0)  
+
+Other <- data.frame(forecast$fcst$Other) %>% 
+  mutate(type = "Other",
+         time = row_number(),
+         carbon_intensity = carbon_intensities[["Other"]])
+
+Solar <- data.frame(forecast$fcst$Solar) %>% 
+  mutate(type = "Solar",
+         time = row_number(),
+         carbon_intensity = carbon_intensities[["Solar"]])
+
+Hydro <- data.frame(forecast$fcst$Hydro) %>% 
+  mutate(type = "Hydro",
+         time = row_number(),
+         carbon_intensity = 0)
+
+Wind <- data.frame(forecast$fcst$Wind) %>% 
+  mutate(type = "Wind",
+         time = row_number(),
+         carbon_intensity = 0)
+
+result.GB <- rbind(Biomass, Fossil.Gas, Fossil.Hard.coal, Nuclear, Other, Solar, Hydro, Wind)
+
+result.GB <- lapply(result.GB, function(x) ifelse(x < 0, 0, x)) %>% 
+  data.frame() %>% 
+  mutate(Country = "GB")
+
+result.GB
+
+```
+
+# Predict for all countries
+
+## BE
+
+TS data preparation
+
+```{r, warning = FALSE}
+
+# Extract country data
+data1.BE <- data1 %>% filter(Country == "BE")
+
+# Create time series for each variable (exclude total generation)
+Biomass.ts <- as.ts(data1.BE["Biomass"]) 
+Fossil.Gas.ts <- as.ts(data1.BE["Fossil.Gas"]) 
+Fossil.Hard.coal.ts <- as.ts(data1.BE["Fossil.Hard.coal"]) 
+Nuclear.ts <- as.ts(data1.BE["Nuclear"]) 
+Other.ts <- as.ts(data1.BE["Other"]) 
+Solar.ts <- as.ts(data1.BE["Solar"]) 
+Hydro.ts <- as.ts(data1.BE["Hydro"]) 
+Wind.ts <- as.ts(data1.BE["Wind"]) 
+
+original_list <- list(Biomass.ts, Fossil.Gas.ts, Fossil.Hard.coal.ts, Nuclear.ts, Other.ts, Solar.ts, Hydro.ts, Wind.ts)
+
+original_name_list <- list("Biomass","Fossil.Gas","Fossil.Hard.coal", "Nuclear", "Other", "Solar", "Hydro", "Wind")
+
+# Visualize time series data for each energy generation type
+for (i in (1:length(original_list))){
+  p <- ts_plot(original_list[[i]], title = original_name_list[[i]])
+  show(p)
+}
+
+# Use Phillips Perron to example if the variables are stationary or not
+for (i in (1:length(original_list))){
+  p <- pp.test(original_list[[i]])$p.value
+  cat(original_name_list[[i]],": p value is", p,"\n")
+}
+
+# Use Augmented Dickey–Fuller Test to example if the variables are stationary or not
+for (i in (1:length(original_list))){
+  p <- adf.test(original_list[[i]])$p.value
+  cat(original_name_list[[i]],": p value is", p,"\n")
+}
+
+```
+
+Model
+
+```{r, warning = FALSE}
+
+# construct time series multivariables
+v1 <- cbind(Biomass.ts, Fossil.Gas.ts, Fossil.Hard.coal.ts, Nuclear.ts, Other.ts, Solar.ts, Hydro.ts, Wind.ts)
+
+colnames(v1) <- cbind("Biomass","Fossil.Gas","Fossil.Hard.coal", "Nuclear", "Other", "Solar", "Hydro", "Wind")
+
+# Train test splitting
+training <- v1[1:55,]
+testing <- v1[56:60,]
+
+# select lag
+lagselect <- VARselect(training, lag.max = 15, type = "const")
+lagselect$selection
+lagselect <- VARselect(training, lag.max = 15, season = 4, type = "const")
+lagselect$selection
+
+# Model building
+Model1 <- VAR(training, p = 1, type = "const", season = NULL, exog = NULL) 
+Model2 <- VAR(training, p = 1, type = "const", season = 4, exog = NULL) 
+
+# Stability Test
+Stability1 <- stability(Model1, type = "OLS-CUSUM")
+plot(Stability1)
+Stability2 <- stability(Model2, type = "OLS-CUSUM")
+plot(Stability2)
+
+# Forcasting
+forecast1 <- predict(Model1, n.ahead = 5, ci = 0.95)
+forecast2 <- predict(Model2, n.ahead = 5, ci = 0.95)
+
+
+# Compare results
+# Model1 rmse
+rmse_list <- list(forecast1$fcst$Biomass, forecast1$fcst$Fossil.Gas, forecast1$fcst$Fossil.Hard.coal, forecast1$fcst$Nuclear, forecast1$fcst$Other, forecast1$fcst$Solar, forecast1$fcst$Hydro, forecast1$fcst$Wind)
+
+all <- 0
+for (i in rmse_list){
+  all = all + rmse(testing[1:5], i)
+}
+avg <- all / length(rmse_list)
+avg
+
+# Model2 rmse
+
+rmse_list <- list(forecast2$fcst$Biomass, forecast2$fcst$Fossil.Gas, forecast2$fcst$Fossil.Hard.coal, forecast2$fcst$Nuclear, forecast2$fcst$Other, forecast2$fcst$Solar, forecast2$fcst$Hydro, forecast2$fcst$Wind)
+
+all <- 0
+for (i in rmse_list){
+  all = all + rmse(testing[1:5], i)
+}
+avg <- all / length(rmse_list)
+avg
+
+# Plot results
+for (i in (1:length(original_list))){
+  p <- fanchart(forecast1, names = original_name_list[[i]], main = cat("Fanchart for",original_name_list[[i]]), xlab = "Horizon", ylab = original_name_list[[i]])
+  q <- autoplot(original_list[[i]])
+  show(p)
+  show(q)
+}
+for (i in (1:length(original_list))){
+  p <- fanchart(forecast2, names = original_name_list[[i]], main = cat("Fanchart for",original_name_list[[i]]), xlab = "Horizon", ylab = original_name_list[[i]])
+  q <- autoplot(original_list[[i]])
+  show(p)
+  show(q)
+}
+
+```
+
+
+Prediction
+
+```{r, message=FALSE}
+
+# Model building
+Model <- VAR(v1, p = 1, type = "const", season = 4, exog = NULL) 
+
+# Stability Test
+Stability <- stability(Model, type = "OLS-CUSUM")
+plot(Stability)
+
+# Forcasting
+forecast <- predict(Model, n.ahead = 5, ci = 0.95)
+
+# Plot results
+for (i in (1:length(original_list))){
+  p <- fanchart(forecast, names = original_name_list[[i]], main = cat("Fanchart for",original_name_list[[i]]), xlab = "Horizon", ylab = original_name_list[[i]])
+  show(p)
+}
+
+```
+
+Export Result
+
+```{r}
+
+Biomass <- data.frame(forecast$fcst$Biomass) %>% 
+  mutate(type = "Biomass",
+         time = row_number(),
+         carbon_intensity = carbon_intensities[["Biomass"]])
+
+Fossil.Gas <- data.frame(forecast$fcst$Fossil.Gas) %>% 
+  mutate(type = "Fossil.Gas",
+         time = row_number(),
+         carbon_intensity = carbon_intensities[["Fossil.Gas"]])
+
+Fossil.Hard.coal <- data.frame(forecast$fcst$Fossil.Hard.coal) %>% 
+  mutate(type = "Fossil.Hard.coal",
+         time = row_number(),
+         carbon_intensity = carbon_intensities[["Fossil.Hard.coal"]])
+
+Nuclear <- data.frame(forecast$fcst$Nuclear) %>% 
+  mutate(type = "Nuclear",
+         time = row_number(),
+         carbon_intensity = 0)  
+
+Other <- data.frame(forecast$fcst$Other) %>% 
+  mutate(type = "Other",
+         time = row_number(),
+         carbon_intensity = carbon_intensities[["Other"]])
+
+Solar <- data.frame(forecast$fcst$Solar) %>% 
+  mutate(type = "Solar",
+         time = row_number(),
+         carbon_intensity = carbon_intensities[["Solar"]])
+
+Hydro <- data.frame(forecast$fcst$Hydro) %>% 
+  mutate(type = "Hydro",
+         time = row_number(),
+         carbon_intensity = 0)
+
+Wind <- data.frame(forecast$fcst$Wind) %>% 
+  mutate(type = "Wind",
+         time = row_number(),
+         carbon_intensity = 0)
+
+result.BE <- rbind(Biomass, Fossil.Gas, Fossil.Hard.coal, Nuclear, Other, Solar, Hydro, Wind)
+
+result.BE <- lapply(result.BE, function(x) ifelse(x < 0, 0, x)) %>% 
+  data.frame() %>% 
+  mutate(Country = "BE")
+
+result.BE
+
+```
+
+## NO
+
+TS data preparation
+
+```{r, warning = FALSE}
+
+# Extract country data
+data1.NO <- data1 %>% filter(Country == "NO")
+
+# Create time series for each variable (exclude total generation)
+# Biomass.ts <- as.ts(data1.NO["Biomass"]) 
+Fossil.Gas.ts <- as.ts(data1.NO["Fossil.Gas"]) 
+# Fossil.Hard.coal.ts <- as.ts(data1.NO["Fossil.Hard.coal"])
+# Nuclear.ts <- as.ts(data1.NO["Nuclear"]) 
+Other.ts <- as.ts(data1.NO["Other"]) 
+# Solar.ts <- as.ts(data1.NO["Solar"]) 
+Hydro.ts <- as.ts(data1.NO["Hydro"]) 
+Wind.ts <- as.ts(data1.NO["Wind"]) 
+
+original_list <- list(Fossil.Gas.ts, Other.ts, Hydro.ts, Wind.ts)
+
+original_name_list <- list("Fossil.Gas", "Other", "Hydro", "Wind")
+
+# Visualize time series data for each energy generation type
+for (i in (1:length(original_list))){
+  p <- ts_plot(original_list[[i]], title = original_name_list[[i]])
+  show(p)
+}
+
+# Use Phillips Perron to example if the variables are stationary or not
+for (i in (1:length(original_list))){
+  p <- pp.test(original_list[[i]])$p.value
+  cat(original_name_list[[i]],": p value is", p,"\n")
+}
+
+# Use Augmented Dickey–Fuller Test to example if the variables are stationary or not
+for (i in (1:length(original_list))){
+  p <- adf.test(original_list[[i]])$p.value
+  cat(original_name_list[[i]],": p value is", p,"\n")
+}
+
+```
+
+Model
+
+```{r, warning = FALSE}
+
+# construct time series multivariables
+v1 <- cbind(Fossil.Gas.ts, Other.ts, Hydro.ts, Wind.ts)
+
+colnames(v1) <- cbind("Fossil.Gas", "Other", "Hydro", "Wind")
+
+# Train test splitting
+training <- v1[1:55,]
+testing <- v1[56:60,]
+
+# select lag
+lagselect <- VARselect(training, lag.max = 15, type = "const")
+lagselect$selection
+lagselect <- VARselect(training, lag.max = 15, season = 4, type = "const")
+lagselect$selection
+
+# Model building
+Model1 <- VAR(training, p = 10, type = "const", season = NULL, exog = NULL) 
+Model2 <- VAR(training, p = 9, type = "const", season = 4, exog = NULL) 
+
+# Stability Test
+Stability1 <- stability(Model1, type = "OLS-CUSUM")
+plot(Stability1)
+Stability2 <- stability(Model2, type = "OLS-CUSUM")
+plot(Stability2)
+
+# Forcasting
+forecast1 <- predict(Model1, n.ahead = 5, ci = 0.95)
+forecast2 <- predict(Model2, n.ahead = 5, ci = 0.95)
+
+
+# Compare results
+# Model1 rmse
+rmse_list <- list(forecast1$fcst$Fossil.Gas, forecast1$fcst$Other, forecast1$fcst$Hydro, forecast1$fcst$Wind)
+
+all <- 0
+for (i in rmse_list){
+  all = all + rmse(testing[1:5], i)
+}
+avg <- all / length(rmse_list)
+avg
+
+# Model2 rmse
+
+rmse_list <- list(forecast2$fcst$Fossil.Gas, forecast2$fcst$Other, forecast2$fcst$Hydro, forecast2$fcst$Wind)
+
+all <- 0
+for (i in rmse_list){
+  all = all + rmse(testing[1:5], i)
+}
+avg <- all / length(rmse_list)
+avg
+
+# Plot results
+for (i in (1:length(original_list))){
+  p <- fanchart(forecast1, names = original_name_list[[i]], main = cat("Fanchart for",original_name_list[[i]]), xlab = "Horizon", ylab = original_name_list[[i]])
+  q <- autoplot(original_list[[i]])
+  show(p)
+  show(q)
+}
+for (i in (1:length(original_list))){
+  p <- fanchart(forecast2, names = original_name_list[[i]], main = cat("Fanchart for",original_name_list[[i]]), xlab = "Horizon", ylab = original_name_list[[i]])
+  q <- autoplot(original_list[[i]])
+  show(p)
+  show(q)
+}
+
+```
+
+
+Prediction
+
+```{r, message=FALSE}
+
+# Model building
+Model <- VAR(v1, p = 10, type = "const", season = NULL, exog = NULL) 
+
+# Stability Test
+Stability <- stability(Model, type = "OLS-CUSUM")
+plot(Stability)
+
+# Forcasting
+forecast <- predict(Model, n.ahead = 5, ci = 0.95)
+
+# Plot results
+for (i in (1:length(original_list))){
+  p <- fanchart(forecast, names = original_name_list[[i]], main = cat("Fanchart for",original_name_list[[i]]), xlab = "Horizon", ylab = original_name_list[[i]])
+  show(p)
+}
+
+```
+
+Export Result
+
+```{r}
+
+# Biomass <- data.frame(forecast$fcst$Biomass) %>% 
+#   mutate(type = "Biomass",
+#          time = row_number(),
+#          carbon_intensity = carbon_intensities[["Biomass"]])
+
+Fossil.Gas <- data.frame(forecast$fcst$Fossil.Gas) %>% 
+  mutate(type = "Fossil.Gas",
+         time = row_number(),
+         carbon_intensity = carbon_intensities[["Fossil.Gas"]])
+
+# Fossil.Hard.coal <- data.frame(forecast$fcst$Fossil.Hard.coal) %>% 
+#   mutate(type = "Fossil.Hard.coal",
+#          time = row_number(),
+#          carbon_intensity = carbon_intensities[["Fossil.Hard.coal"]])
+# 
+# Nuclear <- data.frame(forecast$fcst$Nuclear) %>% 
+#   mutate(type = "Nuclear",
+#          time = row_number(),
+#          carbon_intensity = 0)  
+
+Other <- data.frame(forecast$fcst$Other) %>% 
+  mutate(type = "Other",
+         time = row_number(),
+         carbon_intensity = carbon_intensities[["Other"]])
+
+# Solar <- data.frame(forecast$fcst$Solar) %>% 
+#   mutate(type = "Solar",
+#          time = row_number(),
+#          carbon_intensity = carbon_intensities[["Solar"]])
+
+Hydro <- data.frame(forecast$fcst$Hydro) %>% 
+  mutate(type = "Hydro",
+         time = row_number(),
+         carbon_intensity = 0)
+
+Wind <- data.frame(forecast$fcst$Wind) %>% 
+  mutate(type = "Wind",
+         time = row_number(),
+         carbon_intensity = 0)
+
+result.NO <- rbind(Biomass, Fossil.Gas, Fossil.Hard.coal, Nuclear, Other, Solar, Hydro, Wind)
+
+result.NO <- lapply(result.NO, function(x) ifelse(x < 0, 0, x)) %>% 
+  data.frame() %>% 
+  mutate(Country = "NO")
+
+result.NO
+
+```
+
+## FR
+
+TS data preparation
+
+```{r, warning = FALSE}
+
+# Extract country data
+data1.FR <- data1 %>% filter(Country == "FR")
+
+# Create time series for each variable (exclude total generation)
+Biomass.ts <- as.ts(data1.FR["Biomass"]) 
+Fossil.Gas.ts <- as.ts(data1.FR["Fossil.Gas"]) 
+Fossil.Hard.coal.ts <- as.ts(data1.FR["Fossil.Hard.coal"]) 
+Nuclear.ts <- as.ts(data1.FR["Nuclear"]) 
+# Other.ts <- as.ts(data1.FR["Other"]) 
+Solar.ts <- as.ts(data1.FR["Solar"]) 
+Hydro.ts <- as.ts(data1.FR["Hydro"]) 
+Wind.ts <- as.ts(data1.FR["Wind"]) 
+
+original_list <- list(Biomass.ts, Fossil.Gas.ts, Fossil.Hard.coal.ts, Nuclear.ts, Solar.ts, Hydro.ts, Wind.ts)
+
+original_name_list <- list("Biomass","Fossil.Gas","Fossil.Hard.coal", "Nuclear", "Solar", "Hydro", "Wind")
+
+# Visualize time series data for each energy generation type
+for (i in (1:length(original_list))){
+  p <- ts_plot(original_list[[i]], title = original_name_list[[i]])
+  show(p)
+}
+
+# Use Phillips Perron to example if the variables are stationary or not
+for (i in (1:length(original_list))){
+  p <- pp.test(original_list[[i]])$p.value
+  cat(original_name_list[[i]],": p value is", p,"\n")
+}
+
+# Use Augmented Dickey–Fuller Test to example if the variables are stationary or not
+for (i in (1:length(original_list))){
+  p <- adf.test(original_list[[i]])$p.value
+  cat(original_name_list[[i]],": p value is", p,"\n")
+}
+
+```
+
+
+Model
+
+```{r, warning = FALSE}
+
+# construct time series multivariables
+v1 <- cbind(Biomass.ts, Fossil.Gas.ts, Fossil.Hard.coal.ts, Nuclear.ts, Solar.ts, Hydro.ts, Wind.ts)
+
+colnames(v1) <- cbind("Biomass","Fossil.Gas","Fossil.Hard.coal", "Nuclear", "Solar", "Hydro", "Wind")
+
+# Train test splitting
+training <- v1[1:55,]
+testing <- v1[56:59,]
+
+# select lag
+lagselect <- VARselect(training, lag.max = 15, type = "const")
+lagselect$selection
+lagselect <- VARselect(training, lag.max = 15, season = 4, type = "const")
+lagselect$selection
+
+# Model building
+Model1 <- VAR(training, p = 6, type = "const", season = NULL, exog = NULL) 
+Model2 <- VAR(training, p = 6, type = "const", season = 4, exog = NULL) 
+
+# Stability Test
+Stability1 <- stability(Model1, type = "OLS-CUSUM")
+plot(Stability1)
+Stability2 <- stability(Model2, type = "OLS-CUSUM")
+plot(Stability2)
+
+# Forcasting
+forecast1 <- predict(Model1, n.ahead = 5, ci = 0.95)
+forecast2 <- predict(Model2, n.ahead = 5, ci = 0.95)
+
+# Compare results
+# Model1 rmse
+rmse_list <- list(forecast1$fcst$Biomass, forecast1$fcst$Fossil.Gas, forecast1$fcst$Fossil.Hard.coal, forecast1$fcst$Nuclear, forecast1$fcst$Solar, forecast1$fcst$Hydro, forecast1$fcst$Wind)
+
+all <- 0
+for (i in rmse_list){
+  all = all + rmse(testing[1:5], i)
+}
+avg <- all / length(rmse_list)
+avg
+
+# Model2 rmse
+
+rmse_list <- list(forecast2$fcst$Biomass, forecast2$fcst$Fossil.Gas, forecast2$fcst$Fossil.Hard.coal, forecast2$fcst$Nuclear, forecast2$fcst$Solar, forecast2$fcst$Hydro, forecast2$fcst$Wind)
+
+all <- 0
+for (i in rmse_list){
+  all = all + rmse(testing[1:5], i)
+}
+avg <- all / length(rmse_list)
+avg
+
+# Plot results
+for (i in (1:length(original_list))){
+  p <- fanchart(forecast1, names = original_name_list[[i]], main = cat("Fanchart for",original_name_list[[i]]), xlab = "Horizon", ylab = original_name_list[[i]])
+  q <- autoplot(original_list[[i]])
+  show(p)
+  show(q)
+}
+for (i in (1:length(original_list))){
+  p <- fanchart(forecast2, names = original_name_list[[i]], main = cat("Fanchart for",original_name_list[[i]]), xlab = "Horizon", ylab = original_name_list[[i]])
+  q <- autoplot(original_list[[i]])
+  show(p)
+  show(q)
+}
+
+```
+
+
+Prediction
+
+```{r, message=FALSE}
+
+# Model building
+Model <- VAR(v1, p = 6, type = "const", season = NULL, exog = NULL) 
+
+# Stability Test
+Stability <- stability(Model, type = "OLS-CUSUM")
+plot(Stability)
+
+# Forcasting
+forecast <- predict(Model, n.ahead = 5, ci = 0.95)
+
+# Plot results
+for (i in (1:length(original_list))){
+  p <- fanchart(forecast, names = original_name_list[[i]], main = cat("Fanchart for",original_name_list[[i]]), xlab = "Horizon", ylab = original_name_list[[i]])
+  show(p)
+}
+
+```
+
+Export Result
+
+```{r}
+
+Biomass <- data.frame(forecast$fcst$Biomass) %>% 
+  mutate(type = "Biomass",
+         time = row_number(),
+         carbon_intensity = carbon_intensities[["Biomass"]])
+
+Fossil.Gas <- data.frame(forecast$fcst$Fossil.Gas) %>% 
+  mutate(type = "Fossil.Gas",
+         time = row_number(),
+         carbon_intensity = carbon_intensities[["Fossil.Gas"]])
+
+Fossil.Hard.coal <- data.frame(forecast$fcst$Fossil.Hard.coal) %>% 
+  mutate(type = "Fossil.Hard.coal",
+         time = row_number(),
+         carbon_intensity = carbon_intensities[["Fossil.Hard.coal"]])
+
+Nuclear <- data.frame(forecast$fcst$Nuclear) %>% 
+  mutate(type = "Nuclear",
+         time = row_number(),
+         carbon_intensity = 0)  
+
+# Other <- data.frame(forecast$fcst$Other) %>% 
+#   mutate(type = "Other",
+#          time = row_number(),
+#          carbon_intensity = carbon_intensities[["Other"]])
+
+Solar <- data.frame(forecast$fcst$Solar) %>% 
+  mutate(type = "Solar",
+         time = row_number(),
+         carbon_intensity = carbon_intensities[["Solar"]])
+
+Hydro <- data.frame(forecast$fcst$Hydro) %>% 
+  mutate(type = "Hydro",
+         time = row_number(),
+         carbon_intensity = 0)
+
+Wind <- data.frame(forecast$fcst$Wind) %>% 
+  mutate(type = "Wind",
+         time = row_number(),
+         carbon_intensity = 0)
+
+result.FR <- rbind(Biomass, Fossil.Gas, Fossil.Hard.coal, Nuclear, Solar, Hydro, Wind)
+
+result.FR <- lapply(result.FR, function(x) ifelse(x < 0, 0, x)) %>% 
+  data.frame() %>% 
+  mutate(Country = "FR")
+
+result.FR
+
+```
+
+
+## NL
+
+TS data preparation
+
+```{r, warning = FALSE}
+
+# Extract country data
+data1.NL <- data1 %>% filter(Country == "NL")
+
+# Create time series for each variable (exclude total generation)
+Biomass.ts <- as.ts(data1.NL["Biomass"]) 
+Fossil.Gas.ts <- as.ts(data1.NL["Fossil.Gas"]) 
+Fossil.Hard.coal.ts <- as.ts(data1.NL["Fossil.Hard.coal"]) 
+Nuclear.ts <- as.ts(data1.NL["Nuclear"]) 
+Other.ts <- as.ts(data1.NL["Other"]) 
+Solar.ts <- as.ts(data1.NL["Solar"]) 
+# Hydro.ts <- as.ts(data1.NL["Hydro"]) 
+Wind.ts <- as.ts(data1.NL["Wind"]) 
+
+original_list <- list(Biomass.ts, Fossil.Gas.ts, Fossil.Hard.coal.ts, Nuclear.ts, Other.ts, Solar.ts, Wind.ts)
+
+original_name_list <- list("Biomass","Fossil.Gas","Fossil.Hard.coal", "Nuclear", "Other", "Solar", "Wind")
+
+# Visualize time series data for each energy generation type
+for (i in (1:length(original_list))){
+  p <- ts_plot(original_list[[i]], title = original_name_list[[i]])
+  show(p)
+}
+
+# Use Phillips Perron to example if the variables are stationary or not
+for (i in (1:length(original_list))){
+  p <- pp.test(original_list[[i]])$p.value
+  cat(original_name_list[[i]],": p value is", p,"\n")
+}
+
+# Use Augmented Dickey–Fuller Test to example if the variables are stationary or not
+for (i in (1:length(original_list))){
+  p <- adf.test(original_list[[i]])$p.value
+  cat(original_name_list[[i]],": p value is", p,"\n")
+}
+
+```
+
+Model
+
+```{r, warning = FALSE}
+
+# construct time series multivariables
+v1 <- cbind(Biomass.ts, Fossil.Gas.ts, Fossil.Hard.coal.ts, Nuclear.ts, Other.ts, Solar.ts, Wind.ts)
+
+colnames(v1) <- cbind("Biomass","Fossil.Gas","Fossil.Hard.coal", "Nuclear", "Other", "Solar", "Wind")
+
+# Train test splitting
+training <- v1[1:55,]
+testing <- v1[56:60,]
+
+# select lag
+lagselect <- VARselect(training, lag.max = 15, type = "const")
+lagselect$selection
+lagselect <- VARselect(training, lag.max = 15, season = 4, type = "const")
+lagselect$selection
+
+# Model building
+Model1 <- VAR(training, p = 6, type = "const", season = NULL, exog = NULL) 
+Model2 <- VAR(training, p = 6, type = "const", season = 4, exog = NULL) 
+
+# Stability Test
+Stability1 <- stability(Model1, type = "OLS-CUSUM")
+plot(Stability1)
+Stability2 <- stability(Model2, type = "OLS-CUSUM")
+plot(Stability2)
+
+# Forcasting
+forecast1 <- predict(Model1, n.ahead = 5, ci = 0.95)
+forecast2 <- predict(Model2, n.ahead = 5, ci = 0.95)
+
+# Compare results
+# Model1 rmse
+rmse_list <- list(forecast1$fcst$Biomass, forecast1$fcst$Fossil.Gas, forecast1$fcst$Fossil.Hard.coal, forecast1$fcst$Nuclear, forecast1$fcst$Solar, forecast1$fcst$Other, forecast1$fcst$Wind)
+
+all <- 0
+for (i in rmse_list){
+  all = all + rmse(testing[1:5], i)
+}
+avg <- all / length(rmse_list)
+avg
+
+# Model2 rmse
+
+rmse_list <- list(forecast2$fcst$Biomass, forecast2$fcst$Fossil.Gas, forecast2$fcst$Fossil.Hard.coal, forecast2$fcst$Nuclear, forecast2$fcst$Solar, forecast2$fcst$Other, forecast2$fcst$Wind)
+
+all <- 0
+for (i in rmse_list){
+  all = all + rmse(testing[1:5], i)
+}
+avg <- all / length(rmse_list)
+avg
+
+# Plot results
+for (i in (1:length(original_list))){
+  p <- fanchart(forecast1, names = original_name_list[[i]], main = cat("Fanchart for",original_name_list[[i]]), xlab = "Horizon", ylab = original_name_list[[i]])
+  q <- autoplot(original_list[[i]])
+  show(p)
+  show(q)
+}
+for (i in (1:length(original_list))){
+  p <- fanchart(forecast2, names = original_name_list[[i]], main = cat("Fanchart for",original_name_list[[i]]), xlab = "Horizon", ylab = original_name_list[[i]])
+  q <- autoplot(original_list[[i]])
+  show(p)
+  show(q)
+}
+
+```
+
+
+Prediction
+
+```{r, message=FALSE}
+
+# Model building
+Model <- VAR(v1, p = 1, type = "const", season = NULL, exog = NULL) 
+
+# Stability Test
+Stability <- stability(Model, type = "OLS-CUSUM")
+plot(Stability)
+
+# Forcasting
+forecast <- predict(Model, n.ahead = 5, ci = 0.95)
+
+# Plot results
+for (i in (1:length(original_list))){
+  p <- fanchart(forecast, names = original_name_list[[i]], main = cat("Fanchart for",original_name_list[[i]]), xlab = "Horizon", ylab = original_name_list[[i]])
+  show(p)
+}
+
+```
+
+Export Result
+
+```{r}
+
+Biomass <- data.frame(forecast$fcst$Biomass) %>% 
+  mutate(type = "Biomass",
+         time = row_number(),
+         carbon_intensity = carbon_intensities[["Biomass"]])
+
+Fossil.Gas <- data.frame(forecast$fcst$Fossil.Gas) %>% 
+  mutate(type = "Fossil.Gas",
+         time = row_number(),
+         carbon_intensity = carbon_intensities[["Fossil.Gas"]])
+
+Fossil.Hard.coal <- data.frame(forecast$fcst$Fossil.Hard.coal) %>% 
+  mutate(type = "Fossil.Hard.coal",
+         time = row_number(),
+         carbon_intensity = carbon_intensities[["Fossil.Hard.coal"]])
+
+Nuclear <- data.frame(forecast$fcst$Nuclear) %>% 
+  mutate(type = "Nuclear",
+         time = row_number(),
+         carbon_intensity = 0)  
+
+Other <- data.frame(forecast$fcst$Other) %>% 
+  mutate(type = "Other",
+         time = row_number(),
+         carbon_intensity = carbon_intensities[["Other"]])
+
+Solar <- data.frame(forecast$fcst$Solar) %>% 
+  mutate(type = "Solar",
+         time = row_number(),
+         carbon_intensity = carbon_intensities[["Solar"]])
+
+# Hydro <- data.frame(forecast$fcst$Hydro) %>% 
+#   mutate(type = "Hydro",
+#          time = row_number(),
+#          carbon_intensity = 0)
+
+Wind <- data.frame(forecast$fcst$Wind) %>% 
+  mutate(type = "Wind",
+         time = row_number(),
+         carbon_intensity = 0)
+
+result.NL <- rbind(Biomass, Fossil.Gas, Fossil.Hard.coal, Nuclear, Other, Solar, Wind)
+
+result.NL <- lapply(result.NL, function(x) ifelse(x < 0, 0, x)) %>% 
+  data.frame() %>% 
+  mutate(Country = "NL")
+
+result.NL
+
+```
+
+## DK
+
+
+TS data preparation
+
+```{r, warning = FALSE}
+
+# Extract country data
+data1.DK <- data1 %>% filter(Country == "DK")
+
+# Create time series for each variable (exclude total generation)
+Biomass.ts <- as.ts(data1.DK["Biomass"]) 
+Fossil.Gas.ts <- as.ts(data1.DK["Fossil.Gas"]) 
+Fossil.Hard.coal.ts <- as.ts(data1.DK["Fossil.Hard.coal"]) 
+# Nuclear.ts <- as.ts(data1.DK["Nuclear"]) 
+# Other.ts <- as.ts(data1.DK["Other"]) 
+Solar.ts <- as.ts(data1.DK["Solar"]) 
+# Hydro.ts <- as.ts(data1.DK["Hydro"]) 
+Wind.ts <- as.ts(data1.DK["Wind"]) 
+
+original_list <- list(Biomass.ts, Fossil.Gas.ts, Fossil.Hard.coal.ts, Solar.ts, Wind.ts)
+
+original_name_list <- list("Biomass","Fossil.Gas","Fossil.Hard.coal", "Solar", "Wind")
+
+# Visualize time series data for each energy generation type
+for (i in (1:length(original_list))){
+  p <- ts_plot(original_list[[i]], title = original_name_list[[i]])
+  show(p)
+}
+
+# Use Phillips Perron to example if the variables are stationary or not
+for (i in (1:length(original_list))){
+  p <- pp.test(original_list[[i]])$p.value
+  cat(original_name_list[[i]],": p value is", p,"\n")
+}
+
+# Use Augmented Dickey–Fuller Test to example if the variables are stationary or not
+for (i in (1:length(original_list))){
+  p <- adf.test(original_list[[i]])$p.value
+  cat(original_name_list[[i]],": p value is", p,"\n")
+}
+
+```
+
+Model
+
+```{r, warning = FALSE}
+
+# construct time series multivariables
+v1 <- cbind(Biomass.ts, Fossil.Gas.ts, Fossil.Hard.coal.ts, Solar.ts, Wind.ts)
+
+colnames(v1) <- cbind("Biomass","Fossil.Gas","Fossil.Hard.coal", "Solar", "Wind")
+
+# Train test splitting
+training <- v1[1:55,]
+testing <- v1[56:60,]
+
+# select lag
+lagselect <- VARselect(training, lag.max = 15, type = "const")
+lagselect$selection
+lagselect <- VARselect(training, lag.max = 15, season = 4, type = "const")
+lagselect$selection
+
+# Model building
+Model1 <- VAR(training, p = 8, type = "const", season = NULL, exog = NULL) 
+Model2 <- VAR(training, p = 8, type = "const", season = 4, exog = NULL) 
+
+# Stability Test
+Stability1 <- stability(Model1, type = "OLS-CUSUM")
+plot(Stability1)
+Stability2 <- stability(Model2, type = "OLS-CUSUM")
+plot(Stability2)
+
+# Forcasting
+forecast1 <- predict(Model1, n.ahead = 5, ci = 0.95)
+forecast2 <- predict(Model2, n.ahead = 5, ci = 0.95)
+
+
+# Compare results
+# Model1 rmse
+rmse_list <- list(forecast1$fcst$Biomass, forecast1$fcst$Fossil.Gas, forecast1$fcst$Fossil.Hard.coal, forecast1$fcst$Solar, forecast1$fcst$Wind)
+
+all <- 0
+for (i in rmse_list){
+  all = all + rmse(testing[1:5], i)
+}
+avg <- all / length(rmse_list)
+avg
+
+# Model2 rmse
+
+rmse_list <- list(forecast2$fcst$Biomass, forecast2$fcst$Fossil.Gas, forecast2$fcst$Fossil.Hard.coal, forecast2$fcst$Solar, forecast2$fcst$Wind)
+
+all <- 0
+for (i in rmse_list){
+  all = all + rmse(testing[1:5], i)
+}
+avg <- all / length(rmse_list)
+avg
+
+# Plot results
+for (i in (1:length(original_list))){
+  p <- fanchart(forecast1, names = original_name_list[[i]], main = cat("Fanchart for",original_name_list[[i]]), xlab = "Horizon", ylab = original_name_list[[i]])
+  q <- autoplot(original_list[[i]])
+  show(p)
+  show(q)
+}
+for (i in (1:length(original_list))){
+  p <- fanchart(forecast2, names = original_name_list[[i]], main = cat("Fanchart for",original_name_list[[i]]), xlab = "Horizon", ylab = original_name_list[[i]])
+  q <- autoplot(original_list[[i]])
+  show(p)
+  show(q)
+}
+
+```
+
+
+Prediction
+
+```{r, message=FALSE}
+
+# Model building
+Model <- VAR(v1, p = 8, type = "const", season = 4, exog = NULL) 
+
+# Stability Test
+Stability <- stability(Model, type = "OLS-CUSUM")
+plot(Stability)
+
+# Forcasting
+forecast <- predict(Model, n.ahead = 5, ci = 0.95)
+
+# Plot results
+for (i in (1:length(original_list))){
+  p <- fanchart(forecast, names = original_name_list[[i]], main = cat("Fanchart for",original_name_list[[i]]), xlab = "Horizon", ylab = original_name_list[[i]])
+  show(p)
+}
+
+```
+
+Export Result
+
+```{r}
+
+Biomass <- data.frame(forecast$fcst$Biomass) %>% 
+  mutate(type = "Biomass",
+         time = row_number(),
+         carbon_intensity = carbon_intensities[["Biomass"]])
+
+Fossil.Gas <- data.frame(forecast$fcst$Fossil.Gas) %>% 
+  mutate(type = "Fossil.Gas",
+         time = row_number(),
+         carbon_intensity = carbon_intensities[["Fossil.Gas"]])
+
+Fossil.Hard.coal <- data.frame(forecast$fcst$Fossil.Hard.coal) %>% 
+  mutate(type = "Fossil.Hard.coal",
+         time = row_number(),
+         carbon_intensity = carbon_intensities[["Fossil.Hard.coal"]])
+
+# Nuclear <- data.frame(forecast$fcst$Nuclear) %>% 
+#   mutate(type = "Nuclear",
+#          time = row_number(),
+#          carbon_intensity = 0)  
+# 
+# Other <- data.frame(forecast$fcst$Other) %>% 
+#   mutate(type = "Other",
+#          time = row_number(),
+#          carbon_intensity = carbon_intensities[["Other"]])
+
+Solar <- data.frame(forecast$fcst$Solar) %>% 
+  mutate(type = "Solar",
+         time = row_number(),
+         carbon_intensity = carbon_intensities[["Solar"]])
+
+# Hydro <- data.frame(forecast$fcst$Hydro) %>% 
+#   mutate(type = "Hydro",
+#          time = row_number(),
+#          carbon_intensity = 0)
+
+Wind <- data.frame(forecast$fcst$Wind) %>% 
+  mutate(type = "Wind",
+         time = row_number(),
+         carbon_intensity = 0)
+
+result.DK <- rbind(Biomass, Fossil.Gas, Fossil.Hard.coal, Solar, Wind)
+
+result.DK <- lapply(result.DK, function(x) ifelse(x < 0, 0, x)) %>% 
+  data.frame() %>% 
+  mutate(Country = "DK")
+
+result.DK
+
+```
+
+## IE
+
+
+TS data preparation
+
+```{r, warning = FALSE}
+
+# Extract country data
+data1.IE <- data1 %>% filter(Country == "IE")
+
+# Create time series for each variable (exclude total generation)
+# Biomass.ts <- as.ts(data1.IE["Biomass"]) 
+Fossil.Gas.ts <- as.ts(data1.IE["Fossil.Gas"]) 
+Fossil.Hard.coal.ts <- as.ts(data1.IE["Fossil.Hard.coal"]) 
+# Nuclear.ts <- as.ts(data1.IE["Nuclear"]) 
+Other.ts <- as.ts(data1.IE["Other"]) 
+# Solar.ts <- as.ts(data1.IE["Solar"]) 
+Hydro.ts <- as.ts(data1.IE["Hydro"]) 
+Wind.ts <- as.ts(data1.IE["Wind"]) 
+
+original_list <- list(Fossil.Gas.ts, Fossil.Hard.coal.ts, Other.ts, Hydro.ts, Wind.ts)
+
+original_name_list <- list("Fossil.Gas","Fossil.Hard.coal", "Other", "Hydro", "Wind")
+
+# Visualize time series data for each energy generation type
+for (i in (1:length(original_list))){
+  p <- ts_plot(original_list[[i]], title = original_name_list[[i]])
+  show(p)
+}
+
+# Use Phillips Perron to example if the variables are stationary or not
+for (i in (1:length(original_list))){
+  p <- pp.test(original_list[[i]])$p.value
+  cat(original_name_list[[i]],": p value is", p,"\n")
+}
+
+# Use Augmented Dickey–Fuller Test to example if the variables are stationary or not
+for (i in (1:length(original_list))){
+  p <- adf.test(original_list[[i]])$p.value
+  cat(original_name_list[[i]],": p value is", p,"\n")
+}
+
+```
+
+Model
+
+```{r, warning = FALSE}
+
+# construct time series multivariables
+v1 <- cbind(Fossil.Gas.ts, Fossil.Hard.coal.ts, Other.ts, Hydro.ts, Wind.ts)
+
+colnames(v1) <- cbind("Fossil.Gas","Fossil.Hard.coal", "Other", "Hydro", "Wind")
+
+# Train test splitting
+training <- v1[1:55,]
+testing <- v1[56:60,]
+
+# select lag
+lagselect <- VARselect(training, lag.max = 15, type = "const")
+lagselect$selection
+lagselect <- VARselect(training, lag.max = 15, season = 4, type = "const")
+lagselect$selection
+
+# Model building
+Model1 <- VAR(training, p = 8, type = "const", season = NULL, exog = NULL) 
+Model2 <- VAR(training, p = 8, type = "const", season = 4, exog = NULL) 
+
+# Stability Test
+Stability1 <- stability(Model1, type = "OLS-CUSUM")
+plot(Stability1)
+Stability2 <- stability(Model2, type = "OLS-CUSUM")
+plot(Stability2)
+
+# Forcasting
+forecast1 <- predict(Model1, n.ahead = 5, ci = 0.95)
+forecast2 <- predict(Model2, n.ahead = 5, ci = 0.95)
+
+
+# Compare results
+# Model1 rmse
+rmse_list <- list(forecast1$fcst$Fossil.Gas, forecast1$fcst$Fossil.Hard.coal, forecast1$fcst$Other, forecast1$fcst$Hydro, forecast1$fcst$Wind)
+
+all <- 0
+for (i in rmse_list){
+  all = all + rmse(testing[1:5], i)
+}
+avg <- all / length(rmse_list)
+avg
+
+# Model2 rmse
+
+rmse_list <- list(forecast2$fcst$Fossil.Gas, forecast2$fcst$Fossil.Hard.coal, forecast2$fcst$Other, forecast2$fcst$Hydro, forecast2$fcst$Wind)
+
+all <- 0
+for (i in rmse_list){
+  all = all + rmse(testing[1:5], i)
+}
+avg <- all / length(rmse_list)
+avg
+
+# Plot results
+for (i in (1:length(original_list))){
+  p <- fanchart(forecast1, names = original_name_list[[i]], main = cat("Fanchart for",original_name_list[[i]]), xlab = "Horizon", ylab = original_name_list[[i]])
+  q <- autoplot(original_list[[i]])
+  show(p)
+  show(q)
+}
+for (i in (1:length(original_list))){
+  p <- fanchart(forecast2, names = original_name_list[[i]], main = cat("Fanchart for",original_name_list[[i]]), xlab = "Horizon", ylab = original_name_list[[i]])
+  q <- autoplot(original_list[[i]])
+  show(p)
+  show(q)
+}
+
+```
+
+
+Prediction
+
+```{r, message=FALSE}
+
+# Model building
+Model <- VAR(v1, p = 8, type = "const", season = 4, exog = NULL) 
+
+# Stability Test
+Stability <- stability(Model, type = "OLS-CUSUM")
+plot(Stability)
+
+# Forcasting
+forecast <- predict(Model, n.ahead = 5, ci = 0.95)
+
+# Plot results
+for (i in (1:length(original_list))){
+  p <- fanchart(forecast, names = original_name_list[[i]], main = cat("Fanchart for",original_name_list[[i]]), xlab = "Horizon", ylab = original_name_list[[i]])
+  show(p)
+}
+
+```
+
+Export Result
+
+```{r}
+
+# Biomass <- data.frame(forecast$fcst$Biomass) %>% 
+#   mutate(type = "Biomass",
+#          time = row_number(),
+#          carbon_intensity = carbon_intensities[["Biomass"]])
+
+Fossil.Gas <- data.frame(forecast$fcst$Fossil.Gas) %>% 
+  mutate(type = "Fossil.Gas",
+         time = row_number(),
+         carbon_intensity = carbon_intensities[["Fossil.Gas"]])
+
+Fossil.Hard.coal <- data.frame(forecast$fcst$Fossil.Hard.coal) %>% 
+  mutate(type = "Fossil.Hard.coal",
+         time = row_number(),
+         carbon_intensity = carbon_intensities[["Fossil.Hard.coal"]])
+
+# Nuclear <- data.frame(forecast$fcst$Nuclear) %>% 
+#   mutate(type = "Nuclear",
+#          time = row_number(),
+#          carbon_intensity = 0)  
+
+Other <- data.frame(forecast$fcst$Other) %>% 
+  mutate(type = "Other",
+         time = row_number(),
+         carbon_intensity = carbon_intensities[["Other"]])
+
+# Solar <- data.frame(forecast$fcst$Solar) %>% 
+#   mutate(type = "Solar",
+#          time = row_number(),
+#          carbon_intensity = carbon_intensities[["Solar"]])
+
+Hydro <- data.frame(forecast$fcst$Hydro) %>% 
+  mutate(type = "Hydro",
+         time = row_number(),
+         carbon_intensity = 0)
+
+Wind <- data.frame(forecast$fcst$Wind) %>% 
+  mutate(type = "Wind",
+         time = row_number(),
+         carbon_intensity = 0)
+
+result.IE <- rbind(Fossil.Gas, Fossil.Hard.coal, Other, Hydro, Wind)
+
+result.IE <- lapply(result.IE, function(x) ifelse(x < 0, 0, x)) %>% 
+  data.frame() %>% 
+  mutate(Country = "IE")
+
+result.IE
+
+```
+
+
+# ALL
+
+```{r}
+
+all_pred <-rbind(result.GB, result.BE, result.NO, result.FR, result.NL, result.DK, result.IE) 
+all_pred
+
+all_pred_carbon <- all_pred %>%
+  group_by(Country, time) %>% 
+  mutate(carbon = sum(fcst * carbon_intensity)/sum(fcst)) %>% 
+  dplyr::select(c(time, Country, carbon)) %>% 
+  distinct()
+all_pred_carbon
+
+write.csv(all_pred, "eu_5mon_generation_prediction.csv", row.names = FALSE)
+write.csv(all_pred_carbon, "eu_5mon_carbon_intensities_prediction.csv", row.names = FALSE)
 
 ```
 
