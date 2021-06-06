@@ -1,0 +1,205 @@
+---
+title: "Data Visualisation"
+author: "David Nazareth (3412454)"
+date: "05/06/2021"
+output: html_document
+---
+
+```{r}
+
+# Libraries
+library(readxl)
+library(tidyverse)
+library(ggplot2)
+library(plotly)
+library(lubridate)
+library(ggthemes)
+library(scales)
+library(ggrepel)
+
+```
+
+```{r fig.height=8, fig.width=12}
+
+gb_flows_2016_2020 <- read_xlsx("Total_Carbon_Intensity_2016-2020 .xlsx", sheet=4) %>% 
+  select(1:6)
+gb_flows_2025 <- read_xlsx("Total_Carbon_Intensity_2025.xlsx", sheet=4) %>% 
+  select(1:6,47,50)
+gb_carbon_intensity<- read_xlsx("Total_Carbon_Intensity_2016-2020 .xlsx", sheet=6) %>% 
+  select(Datetime,GB,FR,NL,BE,IE,NIR,DK,NO)
+
+gb_flows_2020 <- gb_flows_2016_2020 %>% 
+  mutate(Datetime= floor_date(Datetime, "year")) %>% 
+  group_by(Datetime) %>% 
+  summarise_at(1:5, sum, na.rm=TRUE) %>% 
+  mutate(GB.DK=0,
+         GB.NO=0
+         ) %>% 
+  slice(5) %>% 
+  mutate_at(2:8, function(x) x/1e3)
+
+gb_flows_2020_2025 <- rbind(gb_flows_2020,gb_flows_2025)
+
+# Calculate the difference in carbon intensity between each country and GB in 2025
+
+diff_CI <- gb_carbon_intensity %>%  
+  mutate(Datetime= floor_date(Datetime, "year")) %>% 
+  group_by(Datetime) %>% 
+  summarise_at(1:8, mean, na.rm=TRUE) %>% 
+  slice(5,10) %>% 
+  mutate(
+    GB.FR= GB-FR,
+    GB.NL= GB-NL,
+    GB.BE=GB-BE,
+    GB.IE= GB-IE,
+    GB.NIR= GB-NIR,
+    GB.DK= GB-DK,
+    GB.NO=GB-NO
+  ) %>% 
+  select(1,10:16)
+  
+gb_carbon_savings <- as.data.frame(as.matrix(gb_flows_2020_2025 %>% select(2:8))*as.matrix(diff_CI %>% select(2:8))) %>%
+ mutate(Datetime= diff_CI$Datetime) %>% 
+ pivot_longer(cols=1:7, names_to= "Interconnector", values_to= "Carbon Savings") %>% 
+ mutate(year=as.factor(year(Datetime)), .before= Datetime) %>% 
+select(-Datetime)
+
+ggplot(gb_carbon_savings, aes(x= Interconnector, y= `Carbon Savings`/1e6, fill= year)) +
+  geom_col(position=position_dodge())+
+  theme_clean()+
+   labs(
+    title="In 2025, Great Britain will achieve carbon savings through trade with Norway, France and Denmark",
+    subtitle= "Total Carbon Savings in Great Britain from Interconnector Imports \n(2020 vs 2025, in million mTCO2e)",
+    y= "Carbon Savings (in million mTCO2e)"
+  )+
+  geom_text(aes(label = round(`Carbon Savings`/1e6, 2), vjust = 1.5) ,colour = "black", position = position_dodge(.9), size = 4)+
+  theme(
+    axis.title.x = element_blank(),
+    axis.text=element_text(size=12),
+    axis.title=element_text(size=12),
+    plot.title = element_text(color="black", size=16, face="bold"),
+    plot.subtitle = element_text(color="black", size=13, face="plain"),
+    plot.caption = element_text(color="black", size=11, face="plain")
+  ) +
+  scale_fill_manual(values=c("#878787", "#3288bd"), name = "Year")
+  
+
+```
+```{r fig.height=8, fig.width=12}
+
+gb_zero_carbon <- read_xlsx("Total_Zero_Carbon_2016-2020.xlsx", sheet=5) %>% 
+  select(Datetime,FR,NL,BE,IE,NIR, DK,NO) %>% 
+mutate(Datetime= floor_date(Datetime, "year")) %>% 
+  group_by(Datetime) %>% 
+  summarise_at(1:7, mean, na.rm=TRUE) %>% 
+  slice(4,10) %>% 
+  mutate(Year= as.factor(year(Datetime)), .before= Datetime) %>% 
+  select(-Datetime) %>% 
+  pivot_longer(cols=2:8, names_to= "Country", values_to= "zero_carbon_share")
+
+ggplot(gb_zero_carbon, aes(x= Country, y= zero_carbon_share, fill= Year, label = scales::percent(zero_carbon_share))) +
+  geom_col(position=position_dodge(),width=0.8)+
+  theme_clean()+
+   labs(
+    title="Average Share of Zero Carbon Energy in European Markets Connected to Great Britain",
+    subtitle= "2019* vs. 2025",
+    y= "Average Share of Zero Carbon Energy",
+    x= "Country of Origin", 
+    caption= "\n\n* Norway (NO) and Denmark (DK) were not connected \nto Great Britain in 2019 but will be connected as of 2025"
+  )+
+  geom_text(aes(vjust = 1.3) ,colour = "black", position = position_dodge(.9), size = 3)+
+  theme(
+    axis.text=element_text(size=12),
+    axis.title=element_text(size=12),
+    plot.title = element_text(color="black", size=16, face="bold"),
+    plot.subtitle = element_text(color="black", size=13, face="plain"),
+    plot.caption = element_text(color="black", size=11, face="italic", hjust=0)
+  ) +
+  scale_fill_manual(values=c("#878787", "#3288bd"))+
+  scale_y_continuous(labels = scales::percent)
+  
+
+```
+
+```{r fig.height=, fig.width=12}
+
+# Import ENTSO-E values for carbon intensity in 2025
+gb_carbon_intensity_2025_E <- read_xlsx("Total_Carbon_Intensity_2025.xlsx", sheet=5) %>% 
+  select(Datetime,GB,FR,NL,BE,IE,NIR,DK,NO,DE) %>% 
+  mutate(Type="ENTSO-E TYNDP", .before=GB)
+
+gb_carbon_intensity_2025_P <- read_xlsx("Total_Carbon_Intensity_2016-2020 .xlsx", sheet=6) %>% 
+  select(Datetime,GB,FR,NL,BE,IE,NIR,DK,NO,DE) %>% 
+  mutate(Datetime= floor_date(Datetime, "year")) %>% 
+  group_by(Datetime) %>% 
+  summarise_at(1:9, mean, na.rm=TRUE) %>% 
+  slice(10) %>% 
+  mutate(Type="ARIMA",.before=GB)
+
+gb_carbon_intensity_2025 <- rbind(gb_carbon_intensity_2025_E, gb_carbon_intensity_2025_P) %>% 
+  pivot_longer(cols= 3:11, names_to = "Country", values_to= "Carbon Intensity") %>% 
+  select(-Datetime)
+
+ggplot(gb_carbon_intensity_2025, aes(x=Country, y= `Carbon Intensity` , fill= Type, label =round(`Carbon Intensity`,2)))+
+  geom_col(position=position_dodge(), width=0.8)+
+  theme_clean()+
+   labs(
+    title="Comparison between forecasts of carbon intensity achieved through ARIMA models \nwith ENTSO-E TYNDP forecasts for 2025",
+    subtitle= "",
+    y= "Average Carbon Intensity (Kg/MWh)",
+    x= ""
+  )+
+  geom_text(aes(vjust = 1.3) ,colour = "black", position = position_dodge(.9), size = 3)+
+  theme(
+    axis.text=element_text(size=12),
+    axis.title=element_text(size=12),
+    plot.title = element_text(color="black", size=14, face="bold"),
+    plot.subtitle = element_text(color="black", size=13, face="plain"),
+    plot.caption = element_text(color="black", size=11, face="italic", hjust=0)
+  ) +
+  scale_fill_manual(values=c("#878787", "#3288bd"), name="Forecast Type")
+
+
+```
+```{r fig.height=8, fig.width=12}
+
+# Import ENTSO-E values for carbon intensity in 2025
+gb_zero_carbon_2025_E <- read_xlsx("Total_Zero_Carbon_2025.xlsx", sheet=5) %>% 
+  select(Datetime,GB,FR,NL,BE,IE,NIR,DK,NO,DE) %>% 
+  mutate(Type="ENTSO-E TYNDP", .before=GB)
+
+gb_zero_carbon_2025_P <- read_xlsx("Total_Zero_Carbon_2016-2020.xlsx", sheet=6) %>% 
+  select(Datetime,GB,FR,NL,BE,IE,NIR,DK,NO,DE) %>% 
+  mutate(Datetime= floor_date(Datetime, "year")) %>% 
+  group_by(Datetime) %>% 
+  summarise_at(1:9, mean, na.rm=TRUE) %>% 
+  slice(10) %>% 
+  mutate(Type="ARIMA",.before=GB)
+
+gb_zero_carbon_2025 <- rbind(gb_zero_carbon_2025_E, gb_zero_carbon_2025_P) %>% 
+  pivot_longer(cols= 3:11, names_to = "Country", values_to= "zero_carbon") %>% 
+  select(-Datetime)
+
+ggplot(gb_zero_carbon_2025, aes(x=Country, y= zero_carbon , fill= Type, label = scales::percent(round(zero_carbon,3))))+
+  geom_col(position=position_dodge(), width=0.8)+
+  theme_clean()+
+   labs(
+    title="Comparison between forecasts for share of zero carbon energy achieved through ARIMA models \nwith ENTSO-E TYNDP forecasts for 2025",
+    subtitle= "",
+    y= "Average Share of Zero Carbon Energy",
+    x= ""
+  )+
+  geom_text(aes(vjust = 1.3) ,colour = "black", position = position_dodge(.9), size = 3)+
+  theme(
+    axis.text=element_text(size=12),
+    axis.title=element_text(size=12),
+    plot.title = element_text(color="black", size=14, face="bold"),
+    plot.subtitle = element_text(color="black", size=13, face="plain"),
+    plot.caption = element_text(color="black", size=11, face="italic", hjust=0)
+  ) +
+  scale_fill_manual(values=c("#878787", "#3288bd"), name="Forecast Type")+
+  scale_y_continuous(labels = scales::percent)
+
+```
+
+  
