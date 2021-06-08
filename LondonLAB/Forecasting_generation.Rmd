@@ -38,6 +38,8 @@ library(scales) # stop abbreviated labeling
 library(TSstudio) # split time series data
 library(gridExtra) # arrange plots in one place
 library(tseries)
+library(RColorBrewer)
+library(kableExtra)
 
 ```
 
@@ -337,10 +339,12 @@ for (i in (1:length(original_list))){
 
 ### Prediction
 
-```{r, message=FALSE}
+```{r, message=FALSE, fig.width= 7, fig.height=4}
+
+options(scipen=999)
 
 # Model building
-Model <- VAR(v1, p = 5, type = "const", season = NULL, exog = NULL) 
+Model <- VAR(v1/1000, p = 5, type = "const", season = NULL, exog = NULL) 
 
 # Stability Test
 Stability <- stability(Model, type = "OLS-CUSUM")
@@ -351,8 +355,13 @@ forecast <- predict(Model, n.ahead = 5, ci = 0.95)
 
 # Plot results
 for (i in (1:length(original_list))){
-  p <- fanchart(forecast, names = original_name_list[[i]], main = cat("Fanchart for",original_name_list[[i]]), xlab = "Horizon", ylab = original_name_list[[i]])
-  show(p)
+  fanchart(forecast, 
+           colors = c("#006D2C", "#31A354", "#74C476", "#BAE4B3", "#EDF8E9"),
+           names = original_name_list[[i]], 
+           main = paste("Forecasted monthly", as.character(original_name_list[[i]]), "generation in GB from VAR model"), 
+           xlab = "Time series (month)", 
+           ylab = "Gigawatt (GW)",
+           col.y = "Dark Green")
 }
 
 ```
@@ -409,6 +418,82 @@ result.GB <- lapply(result.GB, function(x) ifelse(x < 0, 0, x)) %>%
 result.GB
 
 ```
+
+
+```{r}
+
+result.GB.carbon <- result.GB %>%
+  group_by(time) %>% 
+  mutate(GB_prediction = sum(fcst * carbon_intensity)/sum(fcst) * 1000) %>% 
+  dplyr::select(c(time, GB_prediction)) %>% 
+  distinct() %>% 
+  cbind(data.frame(
+    Datetime = c("2021-01-01","2021-02-01","2021-03-01","2021-04-01","2021-05-01"))) %>% 
+  mutate(Datetime = as.Date(Datetime,"%Y-%m-%d"))
+
+result.GB.carbon %>%
+  kbl(caption = "VAR Predictions") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+
+
+eu_monthly_carbon_intensity <- read_csv("eu_monthly_carbon_intensity.csv") %>% 
+  mutate(GB_prediction = GB) %>% 
+  dplyr::select(c(Datetime,GB_prediction)) %>% 
+  rbind(subset(result.GB.carbon, select = c(Datetime,GB_prediction)))
+
+
+ts_plot(as.ts(eu_monthly_carbon_intensity$GB_prediction),
+        title = "Forecasted monthly average carbon intensity in GB from VAR model",
+        color = "Green",
+        Ygrid = TRUE,
+        Xtitle = "Time series (month)",
+        Ytitle = "Average Carbon Intensity (Kg/MWh)")
+
+```
+
+```{r}
+
+options(digits = 4)
+
+actual_generation_GB <- read_csv("2021_actual_generation_GB.csv") %>% 
+  # dplyr::select(c(Datetime,GB)) %>% 
+  mutate(c_Biomass = Biomass * carbon_intensities$Biomass,
+         c_Fossil.Brown.coal.Lignite = Fossil.Brown.coal.Lignite * carbon_intensities$Fossil.Brown.coal.Lignite,
+         c_Fossil.Coal.derived.gas = Fossil.Coal.derived.gas * carbon_intensities$Fossil.Coal.derived.gas,
+         c_Fossil.Gas = Fossil.Gas * carbon_intensities$Fossil.Gas,
+         c_Fossil.Hard.coal = Fossil.Hard.coal * carbon_intensities$Fossil.Hard.coal,
+         c_Fossil.Oil = Fossil.Oil * carbon_intensities$Fossil.Oil,
+         c_Fossil.Peat = Fossil.Peat * carbon_intensities$Fossil.Peat,
+         c_Geothermal = Geothermal * carbon_intensities$Geothermal,
+         c_Hydro.Pumped.Storage = Hydro.Pumped.Storage * carbon_intensities$Hydro.Pumped.Storage,
+         c_Hydro.Run.of.river.and.poundage = Hydro.Run.of.river.and.poundage * carbon_intensities$Hydro.Run.of.river.and.poundage,
+         c_Hydro.Water.Reservoir = Hydro.Water.Reservoir * carbon_intensities$Hydro.Water.Reservoir,
+         c_Nuclear = Nuclear * carbon_intensities$Nuclear,
+         c_Other = Other * carbon_intensities$Other,
+         c_Other.renewable = Other.renewable * carbon_intensities$Other.renewable,
+         c_Solar = Solar * carbon_intensities$Solar,
+         c_Waste = Waste * carbon_intensities$Waste,
+         c_Wind.Offshore = Wind.Offshore * carbon_intensities$Wind.Offshore,
+         c_Wind.Onshore = Wind.Onshore * carbon_intensities$Wind.Onshore) 
+
+actual_generation_GB <- actual_generation_GB %>%
+  # generate carbon intensity
+  mutate(GB_actual = rowSums(actual_generation_GB[ ,22:39])/rowSums(actual_generation_GB[ ,4:21])*1000) %>% 
+  dplyr::select(Datetime,GB_actual) %>% 
+  drop_na()
+
+actual_generation_GB 
+
+result.GB.carbon
+
+
+cbind(actual_generation_GB[1:5,], GB_prediction = result.GB.carbon$GB_prediction) %>% 
+  mutate(Error_rate = percent((GB_prediction - GB_actual)/GB_actual)) %>% 
+  kbl(caption = "VAR Predictions") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+
+```
+
 
 # Predict for all countries
 
