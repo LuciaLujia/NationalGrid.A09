@@ -20,12 +20,14 @@ library(lubridate)
 ```{r}
 
 # import data
-gb_generation_2016 <- read.csv(file = 'GB 2016.csv', header = TRUE, na= c("n/e", "N/A", ""))
-gb_generation_2017 <- read.csv(file = 'GB 2017.csv', header = TRUE, na= c("n/e", "N/A", ""))
-gb_generation_2018 <- read.csv(file = 'GB 2018.csv', header = TRUE, na= c("n/e", "N/A", ""))
+# gb_generation_2016 <- read.csv(file = 'GB 2016.csv', header = TRUE, na= c("n/e", "N/A", ""))
+# gb_generation_2017 <- read.csv(file = 'GB 2017.csv', header = TRUE, na= c("n/e", "N/A", ""))
+# gb_generation_2018 <- read.csv(file = 'GB 2018.csv', header = TRUE, na= c("n/e", "N/A", ""))
+
+gb_generation_2016_18 <- read.csv(file = '2021_actual_generation_entsoe.csv', header = TRUE, na= c("n/e", "N/A", ""))
 
 # bind data
-gb_generation_2016_18 <- as.data.frame(rbind(gb_generation_2016, gb_generation_2017, gb_generation_2018))
+# gb_generation_2016_18 <- as.data.frame(rbind(gb_generation_2016, gb_generation_2017, gb_generation_2018))
 
 # remove unwanted columns
 gb_generation_2016_18 <- subset(gb_generation_2016_18, select = -c(9, 13, 16))
@@ -40,6 +42,9 @@ gb_generation_2016_18 <- gb_generation_2016_18 %>%
 # rename column names
 names(gb_generation_2016_18) <- c("Country", "Datetime",	"Biomass",	"Fossil.Brown.coal.Lignite",	"Fossil.Coal.derived.gas",	"Fossil.Gas",	"Fossil.Hard.coal",	"Fossil.Oil",	"Fossil.Peat",	"Geothermal",	"Hydro.Pumped.Storage",	"Hydro.Run.of.river.and.poundage",	"Hydro.Water.Reservoir",	"Nuclear",	"Other",	"Other.renewable",	"Solar",	"Waste",	"Wind.Offshore",	"Wind.Onshore")
 
+cols.num <- c("Biomass",	"Fossil.Brown.coal.Lignite",	"Fossil.Coal.derived.gas",	"Fossil.Gas",	"Fossil.Hard.coal",	"Fossil.Oil",	"Fossil.Peat",	"Geothermal",	"Hydro.Pumped.Storage",	"Hydro.Run.of.river.and.poundage",	"Hydro.Water.Reservoir",	"Nuclear",	"Other",	"Other.renewable",	"Solar",	"Waste",	"Wind.Offshore",	"Wind.Onshore")
+gb_generation_2016_18[cols.num] <- sapply(gb_generation_2016_18[cols.num],as.numeric)
+
 # split the datetime column to get just dates
 dtparts <- t(as.data.frame(strsplit(gb_generation_2016_18[,2],' ')))
 gb_generation_2016_18[2] <- dtparts[,1]
@@ -47,7 +52,8 @@ gb_generation_2016_18[2] <- dtparts[,1]
 # convert hourly data to monthly 
 gb_generation_2016_18 <- gb_generation_2016_18 %>% 
   mutate(Datetime = floor_date(as.Date(Datetime, format= "%d.%m.%Y"), "month")) %>% 
-  group_by(Datetime, Country) %>% 
+  # group_by(Datetime, Country) %>%\
+  group_by(Datetime, Country) %>%
   mutate_at(3:20, function(x) x/2) %>% 
   summarise_at(1:18, sum)
 
@@ -94,9 +100,12 @@ for (x in data_files){
 }
 
 ```
+
 ```{r}
 
-write.csv(gb_generation_2016_18, "EU 2016-18.csv")
+# write.csv(gb_generation_2016_18, "EU 2016-18.csv")
+
+write.csv(gb_generation_2016_18, "2021_actual_generation_GB.csv")
 
 ```
 
