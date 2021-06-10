@@ -11,7 +11,7 @@ output: html_document
 library(readxl)
 library(tidyverse)
 library(ggplot2)
-library(zoo) # For computing moving averages 
+library(zoo)
 library(GGally)
 library(lubridate)
 library(tseries)
@@ -23,6 +23,7 @@ library(urca)
 library(MTS)
 library(ggthemes)
 library(scales)
+library(kableExtra)
 
 ```
 
@@ -180,15 +181,28 @@ eu_carbon_intensity <- read_xlsx("Total_Carbon_Intensity_2016-2020 .xlsx", sheet
 # Examine Correlation Between the Final Carbon Intensities at each of the 14 countries
 eu_carbon_intensity  %>% 
   dplyr::select(-1) %>% 
-  ggcorr(method = c("pairwise", "pearson"), layout.exp = 2,label_round=2, label = TRUE,label_size = 2,hjust = 1,nbreaks = 5,size = 2,angle = -20)
+  ggcorr(method = c("pairwise", "pearson"), layout.exp = 2,label_round=2, label = TRUE,label_size = 4,hjust = 1,nbreaks = 5,size = 4,angle = 0)
 
 # Visualize the change in carbon intensities over time- Great Britain
 eu_carbon_intensity %>% 
   pivot_longer(cols=2:15, names_to="Country", values_to= "carbon_intensity") %>% 
   filter(Country=="GB") %>% 
   ggplot(aes(x=Datetime, y= carbon_intensity))+
-  geom_line()
-
+  geom_line()+
+  theme_minimal()+
+   labs(
+    title="Evolution of carbon intensity in Great Britain over time",
+    subtitle= "",
+    y= "Carbon Intensity (Kg of CO2/MWh)",
+    x= ""
+  )+
+  theme(
+    axis.text=element_text(size=12),
+    axis.title=element_text(size=12),
+    plot.title = element_text(color="black", size=17, face="bold"),
+    plot.subtitle = element_text(color="black", size=13, face="plain"),
+    plot.caption = element_text(color="black", size=11, face="italic", hjust=0)
+  ) 
 ```
 
 ```{r fig.height=8, fig.width=12}
@@ -338,10 +352,6 @@ mape(BE_data_test$BE, BE_data_test$arima) # 31.08136
 
 checkresiduals(model_arima)
 
-#ARIMA(1,0,0)(1,1,0)[12] 
-
-#  order=c(3,0,1), seasonal=c(1,1,0), lambda = 0
-
 # Add forecasts from Belgium to dataframe
 for_BE <- forecast::forecast(model_arima, h = 75)
 df_for_BE = as.data.frame(for_BE) %>% 
@@ -393,8 +403,6 @@ NO_ts %>% decompose(type="multiplicative") %>%
 # Test for autocorrelation 
 Acf(NO_ts, lag.max = 20)
 Pacf(NO_ts, lag.max=20)
-
-#Evidence of autocorrelation at lags 1,2
 
 # Checking whether the time-series is stationary or not using KPSS test
 NO_ts %>% ur.kpss() %>% summary()
@@ -868,10 +876,13 @@ autoplot(NIR_ts) +
   autolayer(for_NIR)+
   autolayer(NIR_ts_test)
 
+
 eu_forecasts %>% 
   mutate(Datetime= floor_date(Datetime, "year")) %>% 
   group_by(Datetime) %>% 
-  summarise_at(1:9, mean)
+  summarise_at(1:9, mean) %>% 
+  kbl(caption= "Forecasts of carbon intensity in 9 European countries", digits=2) %>% 
+  kable_classic(full_width = F, html_font = "Cambria")
 
 write_csv(eu_forecasts, "eu_carbon_intensity_2021-25.csv")
 
@@ -884,6 +895,11 @@ write_csv(eu_forecasts, "eu_carbon_intensity_2021-25.csv")
 
 eu_green_percentage <- read_excel("Total_Zero_Carbon_2016-2020.xlsx", sheet=5) %>% 
   slice(1:60)
+
+eu_green_percentage  %>% 
+  dplyr::select(-1) %>% 
+  mutate_at(1:14, function(x) round(as.numeric(x),2)) %>% 
+  ggcorr(method = c("pairwise", "pearson"), layout.exp = 2,label_round=2, label = TRUE,label_size = 4,hjust = 1,nbreaks = 5,size = 4,angle = 0)
 
 GB_res_data <- eu_green_percentage %>% 
   dplyr::select(1,8)
@@ -1442,7 +1458,7 @@ eu_res_forecasts %>%
 NIR_res_data <- eu_green_percentage %>% 
   dplyr::select(1,11)
 
-# Visualize the change in green energy percentage over time- Germany
+# Visualize the change in green energy percentage over time- Northern Ireland
 NIR_res_data %>% 
   ggplot(aes(x=Datetime, y= NIR))+
   geom_line()
@@ -1502,12 +1518,15 @@ autoplot(NIR_res_ts) +
 eu_res_forecasts %>% 
   mutate(Datetime= floor_date(Datetime, "year")) %>% 
   group_by(Datetime) %>% 
-  summarise_at(1:9, mean)
+  summarise_at(1:9, mean) %>% 
+  kbl(caption= "Forecasts of share of zero carbon energy in 9 European countries", digits=2) %>% 
+  kable_classic(full_width = F, html_font = "Cambria")
 
 eu_res_forecasts <- eu_res_forecasts %>%
  mutate_at(2:10, function(x) ifelse(x>1,1,x)) 
 
 write_csv(eu_res_forecasts,"eu_res_forecasts.csv")
+
 
 ```
 
