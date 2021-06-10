@@ -21,6 +21,8 @@ library(TTR)
 library(fpp2)
 library(urca)
 library(MTS)
+library(ggthemes)
+library(scales)
 
 ```
 
@@ -172,7 +174,8 @@ mape <- function(actual,pred){
 
 ```{r fig.height=8, fig.width=12}
 
-eu_carbon_intensity <- read_xlsx("Total_Carbon_Intensity_2016-2020 .xlsx", sheet=5)
+eu_carbon_intensity <- read_xlsx("Total_Carbon_Intensity_2016-2020 .xlsx", sheet=6, na="NA") %>% 
+  slice(1:60)
 
 # Examine Correlation Between the Final Carbon Intensities at each of the 14 countries
 eu_carbon_intensity  %>% 
@@ -191,6 +194,7 @@ eu_carbon_intensity %>%
 ```{r fig.height=8, fig.width=12}
 
 GB_data <- eu_carbon_intensity %>% dplyr::select(1,8)
+
 # Split into training and test sets
 GB_data_train <- GB_data[1:45,] 
 GB_data_test <- GB_data[46:60,]
@@ -260,9 +264,21 @@ df_for_GB = as.data.frame(for_GB) %>%
 eu_forecasts$GB = df_for_GB$`Point Forecast`
 
 autoplot(GB_ts) +
-  autolayer(for_GB)+
-  autolayer(GB_ts_test)
-
+  autolayer(for_GB, color=("#006D2C"))+
+   theme_clean()+
+   labs(
+    title="Forecasted monthly average carbon intensity (Kg/MWh) in Great Britain from sARIMA model",
+    subtitle= "",
+    y= "Carbon Intensity(Kg/MWh)",
+    x= ""
+  )+
+  theme(
+    axis.text=element_text(size=12),
+    axis.title=element_text(size=12),
+    plot.title = element_text(color="black", size=16, face="bold"),
+    plot.subtitle = element_text(color="black", size=13, face="plain"),
+    plot.caption = element_text(color="black", size=11, face="italic", hjust=0)
+  ) 
 
 ```
 
@@ -333,8 +349,21 @@ df_for_BE = as.data.frame(for_BE) %>%
 eu_forecasts$BE = df_for_BE$`Point Forecast`
 
 autoplot(BE_ts) +
-  autolayer(for_BE)+
-  autolayer(BE_ts_test)
+  autolayer(for_BE, color = "#006D2C")+
+   theme_clean()+
+   labs(
+    title="Forecasted monthly average carbon intensity (Kg/MWh) in Belgium from sARIMA model",
+    subtitle= "",
+    y= "Carbon Intensity(Kg/MWh)",
+    x= ""
+  )+
+  theme(
+    axis.text=element_text(size=12),
+    axis.title=element_text(size=12),
+    plot.title = element_text(color="black", size=16, face="bold"),
+    plot.subtitle = element_text(color="black", size=13, face="plain"),
+    plot.caption = element_text(color="black", size=11, face="italic", hjust=0)
+  ) 
 
 
 
@@ -544,7 +573,20 @@ eu_forecasts$NL = df_for_NL$`Point Forecast`
 
 autoplot(NL_ts) +
   autolayer(for_NL)+
-  autolayer(NL_ts_test)
+  theme_clean()+
+   labs(
+    title="Forecasted monthly average carbon intensity (Kg/MWh) in the Netherlands from ARIMA model",
+    subtitle= "",
+    y= "Carbon Intensity(Kg/MWh)",
+    x= ""
+  )+
+  theme(
+    axis.text=element_text(size=12),
+    axis.title=element_text(size=12),
+    plot.title = element_text(color="black", size=14, face="bold"),
+    plot.subtitle = element_text(color="black", size=13, face="plain"),
+    plot.caption = element_text(color="black", size=11, face="italic", hjust=0)
+  ) 
 
 eu_forecasts %>% 
   mutate(Datetime= floor_date(Datetime, "year")) %>% 
@@ -840,7 +882,8 @@ write_csv(eu_forecasts, "eu_carbon_intensity_2021-25.csv")
 
 ```{r fig.height=8, fig.width=12}
 
-eu_green_percentage <- read_excel("Total_Zero_Carbon_2016-2020.xlsx", sheet=5)
+eu_green_percentage <- read_excel("Total_Zero_Carbon_2016-2020.xlsx", sheet=5) %>% 
+  slice(1:60)
 
 GB_res_data <- eu_green_percentage %>% 
   dplyr::select(1,8)
@@ -1242,7 +1285,7 @@ eu_res_forecasts %>%
 
 ```
 
-```{r}
+```{r fig.height=8, fig.width=12}
 
 DK_res_data <- eu_green_percentage %>% 
   dplyr::select(1,4)
@@ -1300,8 +1343,22 @@ df_for_DK = as.data.frame(for_DK) %>%
 eu_res_forecasts$DK = df_for_DK$`Point Forecast`
 
 autoplot(DK_res_ts) +
-  autolayer(for_DK)+
-  autolayer(DK_res_ts_test)
+  autolayer(for_DK, color=("#006D2C"))+
+  theme_clean()+
+   labs(
+    title="Forecasted monthly average share of zero carbon energy in Denmark from sARIMA model",
+    subtitle= "",
+    y= "Average share of zero carbon energy",
+    x= ""
+  )+
+  theme(
+    axis.text=element_text(size=12),
+    axis.title=element_text(size=12),
+    plot.title = element_text(color="black", size=16, face="bold"),
+    plot.subtitle = element_text(color="black", size=13, face="plain"),
+    plot.caption = element_text(color="black", size=11, face="italic", hjust=0)
+  ) +
+  scale_y_continuous(labels = scales::percent)
 
 eu_res_forecasts %>% 
   mutate(Datetime= floor_date(Datetime, "year")) %>% 
