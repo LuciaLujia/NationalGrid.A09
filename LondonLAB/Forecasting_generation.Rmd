@@ -124,6 +124,7 @@ eu_generation <- rbind(eu_1618, eu_1920_mod)
 
 ```{r}
 
+# merge renewable attributes into fewer
 colnames(eu_generation)
 
 data1 <- eu_generation %>% 
@@ -154,6 +155,7 @@ data1
 
 cbbPalette <- c("#000000", "#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
+# extract France and GB data
 agg_data <- eu_generation %>% 
   
   filter(Country == c("FR","GB")) %>% 
@@ -172,7 +174,9 @@ agg_data <- eu_generation %>%
   dplyr::select(-c(Fossil.Brown.coal.Lignite, Fossil.Coal.derived.gas, Fossil.Gas, Fossil.Hard.coal,
        Fossil.Oil, Fossil.Peat, Geothermal, Hydro.Pumped.Storage, Hydro.Run.of.river.and.poundage,
        Hydro.Water.Reservoir, Other, Wind.Offshore, Wind.Onshore, Embedded.Wind, Embedded.other)) 
-  
+
+# generate plot
+
 agg_data %>% 
   pivot_longer(cols = colnames(agg_data)[3:12], names_to = "Energy.Type", values_to = "Megawatt") %>% 
   filter(Energy.Type != "total_generation") %>% 
@@ -216,11 +220,11 @@ agg_data %>%
 
 
 
-# VAR - original time series
+# VAR preditions
 
 ## GB Prediction
 
-### TS data preparation
+### Time series data preparation
 
 ```{r, warning = FALSE}
 
@@ -369,6 +373,8 @@ for (i in (1:length(original_list))){
 
 ```{r}
 
+# generate result for each production type
+
 Biomass <- data.frame(forecast$fcst$Biomass) %>% 
   mutate(type = "Biomass",
          time = row_number(),
@@ -409,6 +415,8 @@ Wind <- data.frame(forecast$fcst$Wind) %>%
          time = row_number(),
          carbon_intensity = 0)
 
+# combine together
+
 result.GB <- rbind(Biomass, Fossil.Gas, Fossil.Hard.coal, Nuclear, Other, Solar, Hydro, Wind)
 
 result.GB <- lapply(result.GB, function(x) ifelse(x < 0, 0, x)) %>% 
@@ -421,6 +429,8 @@ result.GB
 
 
 ```{r}
+
+# calculate carbon intensities
 
 result.GB.carbon <- result.GB %>%
   group_by(time) %>% 
@@ -452,6 +462,8 @@ ts_plot(as.ts(eu_monthly_carbon_intensity$GB_prediction),
 ```
 
 ```{r}
+
+# compare predictions to actual data
 
 options(digits = 4)
 
@@ -639,6 +651,8 @@ Export Result
 
 ```{r}
 
+# generate result for each production type
+
 Biomass <- data.frame(forecast$fcst$Biomass) %>% 
   mutate(type = "Biomass",
          time = row_number(),
@@ -679,6 +693,8 @@ Wind <- data.frame(forecast$fcst$Wind) %>%
          time = row_number(),
          carbon_intensity = 0)
 
+# combine together
+
 result.BE <- rbind(Biomass, Fossil.Gas, Fossil.Hard.coal, Nuclear, Other, Solar, Hydro, Wind)
 
 result.BE <- lapply(result.BE, function(x) ifelse(x < 0, 0, x)) %>% 
@@ -698,13 +714,8 @@ TS data preparation
 # Extract country data
 data1.NO <- data1 %>% filter(Country == "NO")
 
-# Create time series for each variable (exclude total generation)
-# Biomass.ts <- as.ts(data1.NO["Biomass"]) 
 Fossil.Gas.ts <- as.ts(data1.NO["Fossil.Gas"]) 
-# Fossil.Hard.coal.ts <- as.ts(data1.NO["Fossil.Hard.coal"])
-# Nuclear.ts <- as.ts(data1.NO["Nuclear"]) 
 Other.ts <- as.ts(data1.NO["Other"]) 
-# Solar.ts <- as.ts(data1.NO["Solar"]) 
 Hydro.ts <- as.ts(data1.NO["Hydro"]) 
 Wind.ts <- as.ts(data1.NO["Wind"]) 
 
@@ -831,35 +842,17 @@ Export Result
 
 ```{r}
 
-# Biomass <- data.frame(forecast$fcst$Biomass) %>% 
-#   mutate(type = "Biomass",
-#          time = row_number(),
-#          carbon_intensity = carbon_intensities[["Biomass"]])
+# generate result for each production type
 
 Fossil.Gas <- data.frame(forecast$fcst$Fossil.Gas) %>% 
   mutate(type = "Fossil.Gas",
          time = row_number(),
          carbon_intensity = carbon_intensities[["Fossil.Gas"]])
 
-# Fossil.Hard.coal <- data.frame(forecast$fcst$Fossil.Hard.coal) %>% 
-#   mutate(type = "Fossil.Hard.coal",
-#          time = row_number(),
-#          carbon_intensity = carbon_intensities[["Fossil.Hard.coal"]])
-# 
-# Nuclear <- data.frame(forecast$fcst$Nuclear) %>% 
-#   mutate(type = "Nuclear",
-#          time = row_number(),
-#          carbon_intensity = 0)  
-
 Other <- data.frame(forecast$fcst$Other) %>% 
   mutate(type = "Other",
          time = row_number(),
          carbon_intensity = carbon_intensities[["Other"]])
-
-# Solar <- data.frame(forecast$fcst$Solar) %>% 
-#   mutate(type = "Solar",
-#          time = row_number(),
-#          carbon_intensity = carbon_intensities[["Solar"]])
 
 Hydro <- data.frame(forecast$fcst$Hydro) %>% 
   mutate(type = "Hydro",
@@ -870,6 +863,8 @@ Wind <- data.frame(forecast$fcst$Wind) %>%
   mutate(type = "Wind",
          time = row_number(),
          carbon_intensity = 0)
+
+# combine together
 
 result.NO <- rbind(Biomass, Fossil.Gas, Fossil.Hard.coal, Nuclear, Other, Solar, Hydro, Wind)
 
@@ -895,7 +890,6 @@ Biomass.ts <- as.ts(data1.FR["Biomass"])
 Fossil.Gas.ts <- as.ts(data1.FR["Fossil.Gas"]) 
 Fossil.Hard.coal.ts <- as.ts(data1.FR["Fossil.Hard.coal"]) 
 Nuclear.ts <- as.ts(data1.FR["Nuclear"]) 
-# Other.ts <- as.ts(data1.FR["Other"]) 
 Solar.ts <- as.ts(data1.FR["Solar"]) 
 Hydro.ts <- as.ts(data1.FR["Hydro"]) 
 Wind.ts <- as.ts(data1.FR["Wind"]) 
@@ -1023,6 +1017,8 @@ Export Result
 
 ```{r}
 
+# generate result for each production type
+
 Biomass <- data.frame(forecast$fcst$Biomass) %>% 
   mutate(type = "Biomass",
          time = row_number(),
@@ -1043,11 +1039,6 @@ Nuclear <- data.frame(forecast$fcst$Nuclear) %>%
          time = row_number(),
          carbon_intensity = 0)  
 
-# Other <- data.frame(forecast$fcst$Other) %>% 
-#   mutate(type = "Other",
-#          time = row_number(),
-#          carbon_intensity = carbon_intensities[["Other"]])
-
 Solar <- data.frame(forecast$fcst$Solar) %>% 
   mutate(type = "Solar",
          time = row_number(),
@@ -1062,6 +1053,8 @@ Wind <- data.frame(forecast$fcst$Wind) %>%
   mutate(type = "Wind",
          time = row_number(),
          carbon_intensity = 0)
+
+# combine together
 
 result.FR <- rbind(Biomass, Fossil.Gas, Fossil.Hard.coal, Nuclear, Solar, Hydro, Wind)
 
@@ -1090,7 +1083,6 @@ Fossil.Hard.coal.ts <- as.ts(data1.NL["Fossil.Hard.coal"])
 Nuclear.ts <- as.ts(data1.NL["Nuclear"]) 
 Other.ts <- as.ts(data1.NL["Other"]) 
 Solar.ts <- as.ts(data1.NL["Solar"]) 
-# Hydro.ts <- as.ts(data1.NL["Hydro"]) 
 Wind.ts <- as.ts(data1.NL["Wind"]) 
 
 original_list <- list(Biomass.ts, Fossil.Gas.ts, Fossil.Hard.coal.ts, Nuclear.ts, Other.ts, Solar.ts, Wind.ts)
@@ -1215,6 +1207,8 @@ Export Result
 
 ```{r}
 
+# generate result for each production type
+
 Biomass <- data.frame(forecast$fcst$Biomass) %>% 
   mutate(type = "Biomass",
          time = row_number(),
@@ -1245,15 +1239,12 @@ Solar <- data.frame(forecast$fcst$Solar) %>%
          time = row_number(),
          carbon_intensity = carbon_intensities[["Solar"]])
 
-# Hydro <- data.frame(forecast$fcst$Hydro) %>% 
-#   mutate(type = "Hydro",
-#          time = row_number(),
-#          carbon_intensity = 0)
-
 Wind <- data.frame(forecast$fcst$Wind) %>% 
   mutate(type = "Wind",
          time = row_number(),
          carbon_intensity = 0)
+
+# combine together
 
 result.NL <- rbind(Biomass, Fossil.Gas, Fossil.Hard.coal, Nuclear, Other, Solar, Wind)
 
@@ -1279,10 +1270,7 @@ data1.DK <- data1 %>% filter(Country == "DK")
 Biomass.ts <- as.ts(data1.DK["Biomass"]) 
 Fossil.Gas.ts <- as.ts(data1.DK["Fossil.Gas"]) 
 Fossil.Hard.coal.ts <- as.ts(data1.DK["Fossil.Hard.coal"]) 
-# Nuclear.ts <- as.ts(data1.DK["Nuclear"]) 
-# Other.ts <- as.ts(data1.DK["Other"]) 
 Solar.ts <- as.ts(data1.DK["Solar"]) 
-# Hydro.ts <- as.ts(data1.DK["Hydro"]) 
 Wind.ts <- as.ts(data1.DK["Wind"]) 
 
 original_list <- list(Biomass.ts, Fossil.Gas.ts, Fossil.Hard.coal.ts, Solar.ts, Wind.ts)
@@ -1408,6 +1396,8 @@ Export Result
 
 ```{r}
 
+# generate result for each production type
+
 Biomass <- data.frame(forecast$fcst$Biomass) %>% 
   mutate(type = "Biomass",
          time = row_number(),
@@ -1423,30 +1413,17 @@ Fossil.Hard.coal <- data.frame(forecast$fcst$Fossil.Hard.coal) %>%
          time = row_number(),
          carbon_intensity = carbon_intensities[["Fossil.Hard.coal"]])
 
-# Nuclear <- data.frame(forecast$fcst$Nuclear) %>% 
-#   mutate(type = "Nuclear",
-#          time = row_number(),
-#          carbon_intensity = 0)  
-# 
-# Other <- data.frame(forecast$fcst$Other) %>% 
-#   mutate(type = "Other",
-#          time = row_number(),
-#          carbon_intensity = carbon_intensities[["Other"]])
-
 Solar <- data.frame(forecast$fcst$Solar) %>% 
   mutate(type = "Solar",
          time = row_number(),
          carbon_intensity = carbon_intensities[["Solar"]])
 
-# Hydro <- data.frame(forecast$fcst$Hydro) %>% 
-#   mutate(type = "Hydro",
-#          time = row_number(),
-#          carbon_intensity = 0)
-
 Wind <- data.frame(forecast$fcst$Wind) %>% 
   mutate(type = "Wind",
          time = row_number(),
          carbon_intensity = 0)
+
+# combine together
 
 result.DK <- rbind(Biomass, Fossil.Gas, Fossil.Hard.coal, Solar, Wind)
 
@@ -1469,12 +1446,9 @@ TS data preparation
 data1.IE <- data1 %>% filter(Country == "IE")
 
 # Create time series for each variable (exclude total generation)
-# Biomass.ts <- as.ts(data1.IE["Biomass"]) 
 Fossil.Gas.ts <- as.ts(data1.IE["Fossil.Gas"]) 
 Fossil.Hard.coal.ts <- as.ts(data1.IE["Fossil.Hard.coal"]) 
-# Nuclear.ts <- as.ts(data1.IE["Nuclear"]) 
 Other.ts <- as.ts(data1.IE["Other"]) 
-# Solar.ts <- as.ts(data1.IE["Solar"]) 
 Hydro.ts <- as.ts(data1.IE["Hydro"]) 
 Wind.ts <- as.ts(data1.IE["Wind"]) 
 
@@ -1601,10 +1575,7 @@ Export Result
 
 ```{r}
 
-# Biomass <- data.frame(forecast$fcst$Biomass) %>% 
-#   mutate(type = "Biomass",
-#          time = row_number(),
-#          carbon_intensity = carbon_intensities[["Biomass"]])
+# generate result for each production type
 
 Fossil.Gas <- data.frame(forecast$fcst$Fossil.Gas) %>% 
   mutate(type = "Fossil.Gas",
@@ -1616,20 +1587,10 @@ Fossil.Hard.coal <- data.frame(forecast$fcst$Fossil.Hard.coal) %>%
          time = row_number(),
          carbon_intensity = carbon_intensities[["Fossil.Hard.coal"]])
 
-# Nuclear <- data.frame(forecast$fcst$Nuclear) %>% 
-#   mutate(type = "Nuclear",
-#          time = row_number(),
-#          carbon_intensity = 0)  
-
 Other <- data.frame(forecast$fcst$Other) %>% 
   mutate(type = "Other",
          time = row_number(),
          carbon_intensity = carbon_intensities[["Other"]])
-
-# Solar <- data.frame(forecast$fcst$Solar) %>% 
-#   mutate(type = "Solar",
-#          time = row_number(),
-#          carbon_intensity = carbon_intensities[["Solar"]])
 
 Hydro <- data.frame(forecast$fcst$Hydro) %>% 
   mutate(type = "Hydro",
@@ -1640,6 +1601,8 @@ Wind <- data.frame(forecast$fcst$Wind) %>%
   mutate(type = "Wind",
          time = row_number(),
          carbon_intensity = 0)
+
+# combine together
 
 result.IE <- rbind(Fossil.Gas, Fossil.Hard.coal, Other, Hydro, Wind)
 
@@ -1656,6 +1619,8 @@ result.IE
 
 ```{r}
 
+# combine all predictions together
+
 all_pred <-rbind(result.GB, result.BE, result.NO, result.FR, result.NL, result.DK, result.IE) 
 all_pred
 
@@ -1665,6 +1630,8 @@ all_pred_carbon <- all_pred %>%
   dplyr::select(c(time, Country, carbon)) %>% 
   distinct()
 all_pred_carbon
+
+# export to csv file
 
 write.csv(all_pred, "eu_5mon_generation_prediction.csv", row.names = FALSE)
 write.csv(all_pred_carbon, "eu_5mon_carbon_intensities_prediction.csv", row.names = FALSE)
